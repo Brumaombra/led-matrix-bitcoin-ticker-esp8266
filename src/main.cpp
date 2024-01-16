@@ -2,9 +2,17 @@
 #include <MD_MAX72xx.h>
 #include <SPI.h>
 #include <ESP8266WiFi.h>
+#include <ESP8266WebServer.h>
 #include <ESP8266HTTPClient.h>
 #include <ArduinoJson.h>
 #include <WiFiClientSecure.h>
+
+// Setup access point and WiFi
+const char *accessPointSSID = "Bitcoin-Ticker"; // Access point SSID
+String wiFiSSID = ""; // Network SSID
+String wiFiPassword = ""; // Network password
+bool accessPointEnabled = false; // If access point enabled
+ESP8266WebServer server(80);
 
 WiFiClientSecure client; // Client object
 HTTPClient http; // HTTP object
@@ -39,19 +47,6 @@ uint16_t scrollPause = 0; // Pause at the end of scrolling
 char curMessage[BUF_SIZE]; // Current message
 char newMessage[BUF_SIZE]; // New message
 bool newMessageAvailable = true; // New available message
-
-// Connect to WiFi
-void connectToWiFi() {
-    const char * ssid = ""; // Your Network SSID <- TODO - Change with your data
-    const char * password = ""; // Your Network password <- TODO - Change with your data
-
-    WiFi.begin(ssid, password); // Connecting to the network
-    sprintf(newMessage, "Connected to WiFi..."); // Successful connection message
-    while (WiFi.status() != WL_CONNECTED) {
-        delay(1000);
-        Serial.println("Connecting...");
-    }
-}
 
 // Formatting number
 String formatStringNumber(String numberToFormat) {
@@ -91,59 +86,126 @@ String formatStringPercentage(String percentageToFormat) {
 
 // Getting Bitcoin data
 void getStockDataAPI() {
-    if (WiFi.status() == WL_CONNECTED) { // Check if connected to WiFi
-        String host = "financialmodelingprep.com";
-        String url = "https://" + host + "/api/v3/quote/BTCUSD?apikey=" + apiKey;
+	String host = "financialmodelingprep.com";
+	String url = "https://" + host + "/api/v3/quote/BTCUSD?apikey=" + apiKey;
 
-        if (client.connect(host, 443)) { // Connecting to the server
-            http.begin(client, url); // HTTP call
+	if (client.connect(host, 443)) { // Connecting to the server
+		http.begin(client, url); // HTTP call
 
-            if (http.GET() == HTTP_CODE_OK) {
-                Serial.println("Response body: " + http.getString());
+		if (http.GET() == HTTP_CODE_OK) {
+			Serial.println("Response body: " + http.getString());
 
-                // Creating the JSON object
-                DynamicJsonDocument doc(ESP.getMaxFreeBlockSize() - 512);
-                DeserializationError error = deserializeJson(doc, http.getString());
+			// Creating the JSON object
+			JsonDocument doc; // (ESP.getMaxFreeBlockSize() - 512);
+			DeserializationError error = deserializeJson(doc, http.getString());
 
-                if (error) {
-                    Serial.printf("Error while parsing the JSON: %s\n", error.c_str());
-                    http.end();
-                    return;
-                }
+			if (error) {
+				Serial.printf("Error while parsing the JSON: %s\n", error.c_str());
+				http.end();
+				return;
+			}
 
-                // Create the scrolling message
-                stripMessagePrice = "BTC: " + formatStringNumber(doc[0]["price"].as < String > ()) + " $ (" + formatStringPercentage(doc[0]["changesPercentage"].as < String > ()) + "%)_"; // Price
-                dailyChange = "Daily Change: " + formatStringNumber(doc[0]["change"].as < String > ()) + " $_"; // Daily Change
-                stripMessageHighLow = "Year High: " + formatStringNumber(doc[0]["yearHigh"].as < String > ()) + " $  -  Year Low: " + formatStringNumber(doc[0]["yearLow"].as < String > ()) + " $_"; // Year High/Low
-                stripMessageOpen = "Open: " + formatStringNumber(doc[0]["open"].as < String > ()) + " $_"; // Open
-                http.end(); // Close connection
-            } else {
-                Serial.printf("HTTP call error: %s\n", http.GET());
-                http.end();
-                return;
-            }
-        } else {
-            Serial.println("Error while connecting to the host " + host);
-            return;
-        }
-    } else {
-        Serial.println("WiFi connection lost: Reconnecting...");
-        connectToWiFi(); // Try reconnecting to the network
-    }
+			// Create the scrolling message
+			stripMessagePrice = "BTC: " + formatStringNumber(doc[0]["price"].as < String > ()) + " $ (" + formatStringPercentage(doc[0]["changesPercentage"].as < String > ()) + "%)_"; // Price
+			dailyChange = "Daily Change: " + formatStringNumber(doc[0]["change"].as < String > ()) + " $_"; // Daily Change
+			stripMessageHighLow = "Year High: " + formatStringNumber(doc[0]["yearHigh"].as < String > ()) + " $  -  Year Low: " + formatStringNumber(doc[0]["yearLow"].as < String > ()) + " $_"; // Year High/Low
+			stripMessageOpen = "Open: " + formatStringNumber(doc[0]["open"].as < String > ()) + " $_"; // Open
+			http.end(); // Close connection
+		} else {
+			Serial.printf("HTTP call error: %d\n", http.GET());
+			http.end();
+			return;
+		}
+	} else {
+		Serial.println("Error while connecting to the host " + host);
+		return;
+	}
 }
 
+// WiFi credential page
+String getHTML() {
+	String html = "<html><body>";
+	html += "<form action='/setup' method='post'>";
+	html += "SSID: <input type='text' name='ssid'><br>";
+	html += "Password: <input type='password' name='password'><br>";
+	html += "<input type='submit' value='Connetti'>";
+	html += "</form></body></html>";
+	return html;
+}
+
+// Connecting to WiFi
+bool connectToWiFi() {
+	WiFi.begin(wiFiSSID.c_str(), wiFiPassword.c_str());
+	int maxTry = 10; // Maximum number of attempts to connect to WiF
+	int count = 0; // Counter
+	while (WiFi.status() != WL_CONNECTED) {
+		if(count >= maxTry)
+			return false; // Connection failed
+		count++;
+		delay(1000);
+	}
+	return true; // Connection success
+}
+
+// Setting up the access point
+void setupAccessPoint() {
+	if(accessPointEnabled) // Check if already enabled
+		return; // If enabled exit the function
+	accessPointEnabled = WiFi.softAP(accessPointSSID); // Start the access point
+	server.on("/", HTTP_GET, []() { // Route root
+		server.send(200, "text/html", getHTML());
+	});
+	server.on("/setup", HTTP_POST, []() { // Route for setting up the WiFi credentials
+		wiFiSSID = server.arg("ssid");
+		wiFiPassword = server.arg("password");
+		bool connected = connectToWiFi(); // Connecting to WiFi
+		if(connected) { // Check if connected to WiFi
+			server.send(200, "text/html", "OK"); // Success
+			accessPointEnabled = !WiFi.softAPdisconnect(true); // Access point disabled
+		} else {
+			server.send(500, "text/html", "KO"); // Error
+		}
+	});
+
+	server.begin(); // Start the server
+}
+
+// Manage WiFi connection
+bool manageWiFiConnection() {
+	if (WiFi.status() == WL_CONNECTED) // Check if connected to WiFi
+		return true; // If connected exit the function
+
+	// Check if credentials are present
+	if(wiFiSSID != "" && wiFiPassword != "") {
+		if(connectToWiFi()) // Connecting to WiFi
+			return true; // Connection success
+		else
+			setupAccessPoint(); // Setup access point
+	} else {
+		setupAccessPoint(); // Setup access point
+	}
+	return false; // Connection failed
+}
+
+// Setup
 void setup() {
+	Serial.begin(57600); // Start serial communication
+	manageWiFiConnection(); // Manage WiFi connection (Pass by if connected to WiFi, otherwise handle the connection process)
     client.setInsecure(); // HTTPS connection
     http.setTimeout(5000); // Set timeout
-    Serial.begin(57600);
     P.begin();
     sprintf(curMessage, "Initializing...");
     P.displayText(curMessage, scrollAlign, scrollDelay, scrollPause, scrollEffect, scrollEffect);
-    connectToWiFi(); // Connecting to WiFi
+    // connectToWiFi(); // Connecting to WiFi
 }
 
+// Loop
 void loop() {
-    if (P.displayAnimate()) { // Is currently scrolling
+	server.handleClient(); // Request handling
+	manageWiFiConnection(); // Manage WiFi connection
+
+	// Is currently scrolling
+    if (P.displayAnimate()) {
         Serial.println("End of cycle");
         if (newMessageAvailable) { // Is a new message available?
             strcpy(curMessage, newMessage); // Store the new message
