@@ -64,7 +64,7 @@ String formatStringNumber(String numberToFormat) {
     }
 
     // Adding thousands separator
-    int currLength = 6;
+    unsigned int currLength = 6;
     while (numberToFormat.length() > currLength) {
         numberToFormat = numberToFormat.substring(0, numberToFormat.length() - currLength) + "." + numberToFormat.substring(numberToFormat.length() - currLength);
         currLength += 4;
@@ -136,7 +136,7 @@ String getHTML() {
 // Connecting to WiFi
 bool connectToWiFi() {
 	WiFi.begin(wiFiSSID.c_str(), wiFiPassword.c_str());
-	int maxTry = 10; // Maximum number of attempts to connect to WiF
+	int maxTry = 10; // Maximum number of attempts to connect to WiFi
 	int count = 0; // Counter
 	while (WiFi.status() != WL_CONNECTED) {
 		if(count >= maxTry)
@@ -148,10 +148,12 @@ bool connectToWiFi() {
 }
 
 // Setting up the access point
-void setupAccessPoint() {
+bool setupAccessPoint() {
 	if(accessPointEnabled) // Check if already enabled
-		return; // If enabled exit the function
+		return true; // If enabled exit the function
 	accessPointEnabled = WiFi.softAP(accessPointSSID); // Start the access point
+	if(!accessPointEnabled) // Check if enabled
+		return false; // If not enabled exit the function
 	server.on("/", HTTP_GET, []() { // Route root
 		server.send(200, "text/html", getHTML());
 	});
@@ -166,8 +168,8 @@ void setupAccessPoint() {
 			server.send(500, "text/html", "KO"); // Error
 		}
 	});
-
 	server.begin(); // Start the server
+	return true; // Access point enabled
 }
 
 // Manage WiFi connection
@@ -187,25 +189,9 @@ bool manageWiFiConnection() {
 	return false; // Connection failed
 }
 
-// Setup
-void setup() {
-	Serial.begin(57600); // Start serial communication
-	manageWiFiConnection(); // Manage WiFi connection (Pass by if connected to WiFi, otherwise handle the connection process)
-    client.setInsecure(); // HTTPS connection
-    http.setTimeout(5000); // Set timeout
-    P.begin();
-    sprintf(curMessage, "Initializing...");
-    P.displayText(curMessage, scrollAlign, scrollDelay, scrollPause, scrollEffect, scrollEffect);
-    // connectToWiFi(); // Connecting to WiFi
-}
-
-// Loop
-void loop() {
-	server.handleClient(); // Request handling
-	manageWiFiConnection(); // Manage WiFi connection
-
-	// Is currently scrolling
-    if (P.displayAnimate()) {
+// Manage the LED matrix
+void manageLedMatrix() {
+    if (P.displayAnimate()) { // Is currently scrolling
         Serial.println("End of cycle");
         if (newMessageAvailable) { // Is a new message available?
             strcpy(curMessage, newMessage); // Store the new message
@@ -213,14 +199,24 @@ void loop() {
         }
 
         P.displayReset();
+		
+		// Check if connected to WiFi
+		if(WiFi.status() != WL_CONNECTED) {
+			String errorMessage = "Network error, not connected to WiFi";
+			Serial.println(errorMessage);
+			errorMessage.toCharArray(newMessage, errorMessage.length() + 1); // Copy the error message and convert it to char[]
+			P.displayText(newMessage, scrollAlign, scrollDelay, scrollPause, scrollEffect, scrollEffect); // Print the error message on the matrix
+			newMessageAvailable = true;
+			return; // If not connected exit the function
+		}
 
         // Call every 6 minutes (For limiting API usage)
         currentMillis = millis();
         if (currentMillis - timestampStockData > 360000 || timestampStockData == 0) {
             timestampStockData = currentMillis; // Save timestamp
-            Serial.println("Calling the API");
-            getStockDataAPI();
-            Serial.println("API called");
+			Serial.println("Calling the API");
+			getStockDataAPI(); // Getting the data
+			Serial.println("API called");
         }
 
         // Print messagges
@@ -256,4 +252,32 @@ void loop() {
 
         newMessageAvailable = true;
     }
+}
+
+// Setup the web client
+void setupWebClient() {
+	client.setInsecure(); // HTTPS connection
+    http.setTimeout(5000); // Set timeout
+}
+
+// Setup the LED matrix
+void setupLedMatrix() {
+	P.begin();
+    sprintf(curMessage, "Initializing...");
+    P.displayText(curMessage, scrollAlign, scrollDelay, scrollPause, scrollEffect, scrollEffect);
+}
+
+// Setup
+void setup() {
+	Serial.begin(57600); // Start serial communication
+	manageWiFiConnection(); // Manage WiFi connection (Pass by if connected to WiFi, otherwise handle the connection process)
+	setupWebClient(); // Setup web client
+	setupLedMatrix(); // Setup LED matrix
+}
+
+// Loop
+void loop() {
+	server.handleClient(); // Request handling
+	manageWiFiConnection(); // Manage WiFi connection (Pass by if connected to WiFi, otherwise handle the connection process)
+	manageLedMatrix(); // Manage the LED matrix
 }
