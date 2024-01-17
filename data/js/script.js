@@ -1,4 +1,4 @@
-const ESPIP = "http://localhost:3000";
+const ESPIP = "";
 
 // Documentready
 $(document).ready(() => {
@@ -7,15 +7,15 @@ $(document).ready(() => {
 
 // Get the SSIDs
 const getNetworks = () => {
-    $("#inputSSID").prop("disabled", true); // Disable element
+    setBusy(true); // Busy on
     fetch(`${ESPIP}/networks`).then(response => {
         return response.json(); // Get the JSON
     }).then(data => {
+        setBusy(false); // Busy off
         const networks = data.networks || []; // Networks list
         const select = $("#inputSSID");
         select.empty(); // Clear the select options
         if (networks.length === 0) {
-            select.prop("disabled", true); // Disable element
             select.append($("<option>", {
                 value: "",
                 text: "No networks found"
@@ -24,14 +24,14 @@ const getNetworks = () => {
         }
 
         // Add networks to the select
-        select.prop("disabled", false); // Enable element
         networks.forEach(item => {
             select.append($("<option>", {
                 value: item.ssid,
-                text: `${item.ssid} (${item.signal})`
+                text: `${item.ssid} (${item.signal} dBm)`
             }));
         });
     }).catch(error => {
+        setBusy(false); // Busy off
         $("#errorModalMessage").text("An error occurred while getting the list of available WiFi networks"); // Set the error message
         $("#modalError").modal("show"); // Open the modal
         $("#inputSSID").prop("disabled", false); // Enable element

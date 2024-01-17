@@ -137,6 +137,18 @@ bool connectToWiFi() {
 	return true; // Connection success
 }
 
+bool sendFile(String path, String type) {
+	if (LittleFS.exists(path)) { // Check if file exists
+		File file = LittleFS.open(path, "r");
+		server.streamFile(file, type); // Send the file
+		file.close();
+		return true;
+	} else {
+		server.send(404, "text/plain", "404: Not Found");
+		return false;
+	}
+}
+
 // Setting up the access point
 bool setupAccessPoint() {
 	if(accessPointEnabled) // Check if already enabled
@@ -144,19 +156,27 @@ bool setupAccessPoint() {
 	accessPointEnabled = WiFi.softAP(accessPointSSID); // Start the access point
 	if(!accessPointEnabled) // Check if enabled
 		return false; // If not enabled exit the function
-	server.on("/", HTTP_GET, []() { // Route root
-		if (LittleFS.exists("/index.html")) { // Check if file exists
-			File file = LittleFS.open("/index.html", "r");
-			server.streamFile(file, "text/html"); // Send the file
-			file.close();
-		} else {
-			server.send(404, "text/plain", "404: Not Found");
-		}
+	server.on("/", HTTP_GET, []() { // Route index
+		sendFile("/index.html", "text/html");
+	});
+	server.on("/js/script.js", HTTP_GET, []() { // Route script
+		sendFile("/js/script.js", "text/javascript");
+	});
+	server.on("/js/bootstrap.bundle.min.js", HTTP_GET, []() { // Route bootstrap.js
+		sendFile("/js/bootstrap.bundle.min.js", "text/javascript");
+	});
+	server.on("/js/jquery-3.7.1.min.js", HTTP_GET, []() { // Route jquery
+		sendFile("/js/jquery-3.7.1.min.js", "text/javascript");
+	});
+	server.on("/css/style.css", HTTP_GET, []() { // Route style
+		sendFile("/css/style.css", "text/css");
+	});
+	server.on("/css/bootstrap.min.css", HTTP_GET, []() { // Route bootstrap.css
+		sendFile("/css/bootstrap.min.css", "text/css");
 	});
 
 	// { ssid, password }
 	server.on("/connect", HTTP_POST, []() { // Route for setting up the WiFi credentials
-		Serial.println("POST /setup");
 		wiFiSSID = server.arg("ssid");
 		wiFiPassword = server.arg("password");
 		Serial.println("SSID: " + wiFiSSID);
@@ -173,21 +193,19 @@ bool setupAccessPoint() {
 	});
 
 	// { networks: [ { ssid: "test", signal: "80"} ] }
-	server.on("/networks", HTTP_POST, []() { // Route for getting the WiFi networks
-		Serial.println("POST /setup");
-		wiFiSSID = server.arg("ssid");
-		wiFiPassword = server.arg("password");
-		Serial.println("SSID: " + wiFiSSID);
-		Serial.println("Password: " + wiFiPassword);
-		bool connected = connectToWiFi(); // Connecting to WiFi
-		if(connected) { // Check if connected to WiFi
-			Serial.println("Connected to WiFi");
-			server.send(200, "text/html", "OK"); // Success
-			accessPointEnabled = !WiFi.softAPdisconnect(true); // Access point disabled
-		} else {
-			Serial.println("Connection to WiFi failed");
-			server.send(500, "text/html", "KO"); // Error
+	server.on("/networks", HTTP_GET, []() { // Route for getting the WiFi networks
+		Serial.println("GET /networks");
+		JsonDocument doc; // JSON object
+		JsonArray networks = doc["networks"].to<JsonArray>();
+		int numberOfNetworks = WiFi.scanNetworks(); // Get the number of networks 
+		for(int i = 0; i < numberOfNetworks; i++) { // Loop through the WiFi networks
+			JsonObject network = networks.add<JsonObject>();
+			network["ssid"] = WiFi.SSID(i);
+			network["signal"] = WiFi.RSSI(i);
 		}
+		String json; // JSON string
+		serializeJson(doc, json); // Convert JSON object to string
+		server.send(200, "application/json", json); // Success
 	});
 	server.begin(); // Start the server
 	return true; // Access point enabled
