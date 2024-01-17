@@ -6,6 +6,7 @@
 #include <ESP8266HTTPClient.h>
 #include <ArduinoJson.h>
 #include <WiFiClientSecure.h>
+#include <LittleFS.h>
 
 // Setup access point and WiFi
 const char *accessPointSSID = "Bitcoin-Ticker"; // Access point SSID
@@ -155,16 +156,27 @@ bool setupAccessPoint() {
 	if(!accessPointEnabled) // Check if enabled
 		return false; // If not enabled exit the function
 	server.on("/", HTTP_GET, []() { // Route root
-		server.send(200, "text/html", getHTML());
+		if (LittleFS.exists("/index.html")) { // Check if file exists
+			File file = LittleFS.open("/index.html", "r");
+			server.streamFile(file, "text/html"); // Send the file
+			file.close();
+		} else {
+			server.send(404, "text/plain", "404: Not Found");
+		}
 	});
 	server.on("/setup", HTTP_POST, []() { // Route for setting up the WiFi credentials
+		Serial.println("POST /setup");
 		wiFiSSID = server.arg("ssid");
 		wiFiPassword = server.arg("password");
+		Serial.println("SSID: " + wiFiSSID);
+		Serial.println("Password: " + wiFiPassword);
 		bool connected = connectToWiFi(); // Connecting to WiFi
 		if(connected) { // Check if connected to WiFi
+			Serial.println("Connected to WiFi");
 			server.send(200, "text/html", "OK"); // Success
 			accessPointEnabled = !WiFi.softAPdisconnect(true); // Access point disabled
 		} else {
+			Serial.println("Connection to WiFi failed");
 			server.send(500, "text/html", "KO"); // Error
 		}
 	});
@@ -269,10 +281,14 @@ void setupLedMatrix() {
 
 // Setup
 void setup() {
-	Serial.begin(57600); // Start serial communication
+	Serial.begin(9600); // Start serial communication
 	manageWiFiConnection(); // Manage WiFi connection (Pass by if connected to WiFi, otherwise handle the connection process)
 	setupWebClient(); // Setup web client
 	setupLedMatrix(); // Setup LED matrix
+	if (!LittleFS.begin()) {
+		Serial.println("An Error has occurred while mounting LittleFS");
+		return;
+  	}
 }
 
 // Loop
