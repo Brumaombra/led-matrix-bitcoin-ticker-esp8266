@@ -123,17 +123,6 @@ void getStockDataAPI() {
 	}
 }
 
-// WiFi credential page
-String getHTML() {
-	String html = "<html><body>";
-	html += "<form action='/setup' method='post'>";
-	html += "SSID: <input type='text' name='ssid'><br>";
-	html += "Password: <input type='password' name='password'><br>";
-	html += "<input type='submit' value='Connetti'>";
-	html += "</form></body></html>";
-	return html;
-}
-
 // Connecting to WiFi
 bool connectToWiFi() {
 	WiFi.begin(wiFiSSID.c_str(), wiFiPassword.c_str());
@@ -164,7 +153,27 @@ bool setupAccessPoint() {
 			server.send(404, "text/plain", "404: Not Found");
 		}
 	});
-	server.on("/setup", HTTP_POST, []() { // Route for setting up the WiFi credentials
+
+	// { ssid, password }
+	server.on("/connect", HTTP_POST, []() { // Route for setting up the WiFi credentials
+		Serial.println("POST /setup");
+		wiFiSSID = server.arg("ssid");
+		wiFiPassword = server.arg("password");
+		Serial.println("SSID: " + wiFiSSID);
+		Serial.println("Password: " + wiFiPassword);
+		bool connected = connectToWiFi(); // Connecting to WiFi
+		if(connected) { // Check if connected to WiFi
+			Serial.println("Connected to WiFi");
+			server.send(200, "text/html", "OK"); // Success
+			accessPointEnabled = !WiFi.softAPdisconnect(true); // Access point disabled
+		} else {
+			Serial.println("Connection to WiFi failed");
+			server.send(500, "text/html", "KO"); // Error
+		}
+	});
+
+	// { networks: [ { ssid: "test", signal: "80"} ] }
+	server.on("/networks", HTTP_POST, []() { // Route for getting the WiFi networks
 		Serial.println("POST /setup");
 		wiFiSSID = server.arg("ssid");
 		wiFiPassword = server.arg("password");
@@ -274,21 +283,28 @@ void setupWebClient() {
 
 // Setup the LED matrix
 void setupLedMatrix() {
-	P.begin();
+	P.begin(); // Start the LED matrix
     sprintf(curMessage, "Initializing...");
     P.displayText(curMessage, scrollAlign, scrollDelay, scrollPause, scrollEffect, scrollEffect);
 }
 
+// Setup LittleFS
+bool setupLittleFS() {
+	if (!LittleFS.begin()) { // Check if LittleFS is mounted
+		Serial.println("An Error has occurred while mounting LittleFS");
+		return false;
+	} else {
+		return true;
+	}
+}
+
 // Setup
 void setup() {
-	Serial.begin(9600); // Start serial communication
+	Serial.begin(9600); // Start serial 
+	setupLittleFS(); // Setup LittleFS
 	manageWiFiConnection(); // Manage WiFi connection (Pass by if connected to WiFi, otherwise handle the connection process)
 	setupWebClient(); // Setup web client
 	setupLedMatrix(); // Setup LED matrix
-	if (!LittleFS.begin()) {
-		Serial.println("An Error has occurred while mounting LittleFS");
-		return;
-  	}
 }
 
 // Loop
