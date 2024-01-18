@@ -149,6 +149,30 @@ bool sendFile(String path, String type) {
 	}
 }
 
+// Manage the "connect" HTTP request
+bool manageConnectRequest() {
+	String request = server.arg("plain"); // JSON string
+	JsonDocument doc; // JSON object
+	DeserializationError error = deserializeJson(doc, request); // Convert JSON string to JSON object
+	if (error) // Check if deserialization is OK
+		return false;
+	if (doc["ssid"].isNull() || doc["ssid"].isNull()) // Check if the JSON object is empty
+		return false;
+	wiFiSSID = doc["ssid"].as<String>();; // Network SSID
+	wiFiPassword = doc["password"].as<String>();; // Network password
+	Serial.println("SSID: " + wiFiSSID);
+	Serial.println("Password: " + wiFiPassword);
+	bool connected = connectToWiFi(); // Connecting to WiFi
+	if(connected) { // Check if connected to WiFi
+		Serial.println("Connected to WiFi");
+		accessPointEnabled = !WiFi.softAPdisconnect(true); // Access point disabled
+		return true; // Connection success
+	} else {
+		Serial.println("Connection to WiFi failed");
+		return false; // Connection failed
+	}
+}
+
 // Setting up the access point
 bool setupAccessPoint() {
 	if(accessPointEnabled) // Check if already enabled
@@ -174,22 +198,21 @@ bool setupAccessPoint() {
 	server.on("/css/bootstrap.min.css", HTTP_GET, []() { // Route bootstrap.css
 		sendFile("/css/bootstrap.min.css", "text/css");
 	});
+	server.on("/css/all.min.css", HTTP_GET, []() { // Route font-awesome
+		sendFile("/css/all.min.css", "text/css");
+	});
+	server.on("/webfonts/fa-solid-900.woff2", HTTP_GET, []() { // Route font-awesome
+		sendFile("/webfonts/fa-solid-900.woff2", "font/woff2");
+	});
 
 	// { ssid, password }
-	server.on("/connect", HTTP_POST, []() { // Route for setting up the WiFi credentials
-		wiFiSSID = server.arg("ssid");
-		wiFiPassword = server.arg("password");
-		Serial.println("SSID: " + wiFiSSID);
-		Serial.println("Password: " + wiFiPassword);
-		bool connected = connectToWiFi(); // Connecting to WiFi
-		if(connected) { // Check if connected to WiFi
-			Serial.println("Connected to WiFi");
-			server.send(200, "text/html", "OK"); // Success
-			accessPointEnabled = !WiFi.softAPdisconnect(true); // Access point disabled
-		} else {
-			Serial.println("Connection to WiFi failed");
-			server.send(500, "text/html", "KO"); // Error
-		}
+	server.on("/connect", HTTP_POST, []() { // Route for connecting to WiFi
+		bool connected = manageConnectRequest(); // Connecting to WiFi
+		JsonDocument doc; // JSON object
+		doc["status"] = connected ? "OK" : "KO";
+		String response; // JSON string
+		serializeJson(doc, response); // Convert JSON object to string
+		server.send(connected ? 200 : 500, "application/json", response);
 	});
 
 	// { networks: [ { ssid: "test", signal: "80"} ] }
