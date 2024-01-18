@@ -70,3 +70,11 @@ html, body {
     width: 3rem;
     height: 3rem;
 }
+
+/* Icone */
+.success-icon {
+    color: #198754;
+}
+.error-icon {
+    color: #dc3545;
+}

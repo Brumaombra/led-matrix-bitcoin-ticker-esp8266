@@ -5,8 +5,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bitcoin Ticker</title>
-    <link href="/css/bootstrap.min.css" rel="stylesheet">
-    <link href="/css/style.css" rel="stylesheet">
+    <link href="css/bootstrap.min.css" rel="stylesheet">
+    <link href="css/style.css" rel="stylesheet">
+    <link href="css/all.min.css" rel="stylesheet">
 </head>
 
 <body>
@@ -15,19 +16,24 @@
         <!-- Form -->
         <div class="form-container">
             <div>
-                <h1 class="h3 mb-3">Select WiFi</h1>
+                <h1 class="h3 mb-3">Select WiFi<i class="fa-solid fa-wifi ms-3"></i></h1>
                 <div class="mb-3">
                     <label class="form-label">SSID</label>
                     <div class="d-flex">
                         <select id="inputSSID" class="form-select gmb-3"></select>
-                        <button class="btn btn-secondary btn-refresh ms-2" onclick="getNetworks()">R</button>
+                        <button class="btn btn-secondary btn-refresh ms-2" title="Refresh the networks" onclick="getNetworks()">
+                            <i class="fa-solid fa-rotate"></i>
+                        </button>
                     </div>
                 </div>
                 <div class="mb-3">
                     <label class="form-label">Password</label>
                     <input id="inputPassword" type="password" class="form-control">
                 </div>
-                <button class="btn btn-primary btn-submit" onclick="sendRequest()">CONNECT</button>
+                <button class="btn btn-primary btn-submit" onclick="sendRequest()">
+                    <i class="fa-solid fa-wifi me-1"></i>
+                    CONNECT
+                </button>
             </div>
         </div>
     </div>
@@ -37,7 +43,7 @@
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h1 class="modal-title fs-5">Success!</h1>
+                    <h1 class="modal-title fs-5"><i class="fa-solid fa-circle-check me-2 success-icon"></i>Success!</h1>
                 </div>
                 <div class="modal-body">
                     <p>You have successfully connected the device to the WiFi network!</p>
@@ -54,7 +60,7 @@
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h1 class="modal-title fs-5">Error!</h1>
+                    <h1 class="modal-title fs-5"><i class="fa-solid fa-circle-exclamation me-2 error-icon"></i>Error!</h1>
                 </div>
                 <div class="modal-body">
                     <p id="errorModalMessage"></p>
@@ -76,9 +82,9 @@
     </div>
 
     <!-- Script -->
-    <script src="/js/jquery-3.7.1.min.js"></script>
-    <script src="/js/bootstrap.bundle.min.js"></script>
-    <script src="/js/script.js"></script>
+    <script src="js/jquery-3.7.1.min.js"></script>
+    <script src="js/bootstrap.bundle.min.js"></script>
+    <script src="js/script.js"></script>
 </body>
 
 </html>

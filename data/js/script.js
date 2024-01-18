@@ -1,9 +1,24 @@
-const ESPIP = "";
+const ESPIP = "http://localhost:3000";
 
-// Documentready
+// Document ready
 $(document).ready(() => {
-    getNetworks(); // Get the networks
+    init(); // Init function
 });
+
+// Init function
+const init = () => {
+    addEventListeners(); // Add event listeners
+    getNetworks(); // Get the networks
+};
+
+// Add the event listeners
+const addEventListeners = () => {
+    $("#inputPassword").keypress(event => {
+        const keycode = event.keyCode || event.which;
+        if (keycode == "13") // Enter pressed
+            sendRequest(); // Send the request
+    });
+};
 
 // Get the SSIDs
 const getNetworks = () => {
@@ -36,7 +51,7 @@ const getNetworks = () => {
         $("#modalError").modal("show"); // Open the modal
         $("#inputSSID").prop("disabled", false); // Enable element
     });
-}
+};
 
 // Send the request to the server
 const sendRequest = () => {
@@ -62,7 +77,7 @@ const sendRequest = () => {
         $("#errorModalMessage").text("An error occurred while connecting to the WiFi network"); // Set the error message
         $("#modalError").modal("show"); // Open the modal
     });
-}
+};
 
 // Busy
 const setBusy = busy => {
@@ -70,4 +85,4 @@ const setBusy = busy => {
         $("#fullScreenBusy").fadeIn(100);
     else
         $("#fullScreenBusy").fadeOut(100);
-}
+};
