@@ -19,12 +19,13 @@ WiFiClientSecure client; // Client object
 HTTPClient http; // HTTP object
 unsigned long currentMillis; // Current time
 unsigned long timestampStockData = 0; // Timestamp stock data
+unsigned long timestampWiFiConnection = 0; // Timestamp WiFi connection
 String stripMessagePrice; // Price
 String dailyChange; // Change
 String stripMessageHighLow; // Year High/Low
 String stripMessageOpen; // Open
 int switchText = 0; // Variable for the switch
-String apiKey = ""; // Your API key for financialmodelingprep.com <- TODO - Change with your data
+String apiKey = "8b5e75db3ac93df1144f0743f2b5b786"; // Your API key for financialmodelingprep.com <- TODO - Change with your data
 
 #define PRINT(s, x)
 #define PRINTS(x)
@@ -117,20 +118,40 @@ bool connectToWiFi(const String &wiFiSSIDTemp = "", const String &wiFiPasswordTe
 	String wiFiSSIDTest = wiFiSSIDTemp != "" ? wiFiSSIDTemp : wiFiSSID; // Test network SSID
 	String wiFiPasswordTest = wiFiPasswordTemp != "" ? wiFiPasswordTemp : wiFiPassword; // Test network password
 	WiFi.begin(wiFiSSIDTest.c_str(), wiFiPasswordTest.c_str()); // Connecting to the WiFi
-	int maxTry = 10; // Maximum number of attempts to connect to WiFi
+	int maxTry = 50; // Maximum number of attempts to connect to WiFi
 	int count = 0; // Counter
+	Serial.print("Connecting to WiFi");
 	while (WiFi.status() != WL_CONNECTED) {
 		if(count >= maxTry)
 			return false; // Connection failed
 		count++;
-		delay(1000);
+		Serial.print(".");
+		delay(250);
 	}
 	wiFiSSID = wiFiSSIDTest; // Update network SSID
 	wiFiPassword = wiFiPasswordTest; // Update network password
+	Serial.println(" connected!");
 	return true; // Connection success
 }
 
-// Manage the sending of the file
+// Manage the "connect" HTTP request
+bool manageConnectRequest() {
+	String request = server.arg("plain"); // JSON string
+	Serial.println("Request: " + request);
+	JsonDocument doc; // JSON object
+	DeserializationError error = deserializeJson(doc, request); // Convert JSON string to JSON object
+	if (error) // Check if deserialization is OK
+		return false;
+	if (doc["ssid"].isNull() || doc["ssid"].isNull()) // Check if the JSON object is empty
+		return false;
+	String wiFiSSIDTemp = doc["ssid"].as<String>();; // Network SSID
+	String wiFiPasswordTemp = doc["password"].as<String>();; // Network password
+	Serial.println("SSID: " + wiFiSSIDTemp);
+	Serial.println("Password: " + wiFiPasswordTemp);
+	return connectToWiFi(wiFiSSIDTemp, wiFiPasswordTemp); // Connecting to WiFi
+}
+
+/* Manage the sending of the file
 bool sendFile(String path, String type) {
 	if (LittleFS.exists(path)) { // Check if file exists
 		File file = LittleFS.open(path, "r");
@@ -142,30 +163,48 @@ bool sendFile(String path, String type) {
 		return false;
 	}
 }
+*/
 
-// Manage the "connect" HTTP request
-bool manageConnectRequest() {
-	String request = server.arg("plain"); // JSON string
-	JsonDocument doc; // JSON object
-	DeserializationError error = deserializeJson(doc, request); // Convert JSON string to JSON object
-	if (error) // Check if deserialization is OK
-		return false;
-	if (doc["ssid"].isNull() || doc["ssid"].isNull()) // Check if the JSON object is empty
-		return false;
-	String wiFiSSIDTemp = doc["ssid"].as<String>();; // Network SSID
-	String wiFiPasswordTemp = doc["password"].as<String>();; // Network password
-	Serial.println("SSID: " + wiFiSSID);
-	Serial.println("Password: " + wiFiPassword);
-	bool connected = connectToWiFi(wiFiSSIDTemp, wiFiPasswordTemp); // Connecting to WiFi
-	if(connected) { // Check if connected to WiFi
-		Serial.println("Connected to WiFi");
-		accessPointEnabled = !WiFi.softAPdisconnect(true); // Access point disabled
-		return true; // Connection success
-	} else {
-		Serial.println("Connection to WiFi failed");
-		return false; // Connection failed
-	}
+// Manage the sending of the file
+bool sendFile(const String& path, const String& type) {
+    if (!LittleFS.exists(path)) {
+        server.send(404, "text/plain", "404: Not Found");
+        return false;
+    }
+
+    File file = LittleFS.open(path, "r");
+    server.streamFile(file, type);
+    file.close();
+    return true;
 }
+
+// Setup delle route semplificato
+void setupRoutes() {
+    const char* routes[][3] = {
+        {"/", "/index.html", "text/html"},
+        {"/js/script.js", "/js/script.js", "text/javascript"},
+		{"/js/bootstrap.bundle.min.js", "/js/bootstrap.bundle.min.js", "text/javascript"},
+		{"/js/jquery-3.7.1.min.js", "/js/jquery-3.7.1.min.js", "text/javascript"},
+		{"/css/style.css", "/css/style.css", "text/css"},
+		{"/css/bootstrap.min.css", "/css/bootstrap.min.css", "text/css"},
+		{"/css/all.min.css", "/css/all.min.css", "text/css"},
+		{"/webfonts/fa-solid-900.woff2", "/webfonts/fa-solid-900.woff2", "font/woff2"},
+		{"/img/bitcoin-logo.svg", "/img/bitcoin-logo.svg", "image/svg+xml"}
+    };
+
+	// Create all the routes
+    for (auto& route : routes) {
+        server.on(route[0], HTTP_GET, [route]() {
+            sendFile(route[1], route[2]);
+        });
+    }
+}
+
+/* Setup the routes
+void setupRoute(const String& request, const String& path, const String& type) {
+    server.on(request, HTTP_GET, [path, type]() { sendFile(path, type); });
+}
+*/
 
 // Setting up the access point
 bool setupAccessPoint() {
@@ -174,42 +213,34 @@ bool setupAccessPoint() {
 	accessPointEnabled = WiFi.softAP(accessPointSSID); // Start the access point
 	if(!accessPointEnabled) // Check if enabled
 		return false; // If not enabled exit the function
-	server.on("/", HTTP_GET, []() { // Route index
-		sendFile("/index.html", "text/html");
-	});
-	server.on("/js/script.js", HTTP_GET, []() { // Route script
-		sendFile("/js/script.js", "text/javascript");
-	});
-	server.on("/js/bootstrap.bundle.min.js", HTTP_GET, []() { // Route bootstrap.js
-		sendFile("/js/bootstrap.bundle.min.js", "text/javascript");
-	});
-	server.on("/js/jquery-3.7.1.min.js", HTTP_GET, []() { // Route jquery
-		sendFile("/js/jquery-3.7.1.min.js", "text/javascript");
-	});
-	server.on("/css/style.css", HTTP_GET, []() { // Route style
-		sendFile("/css/style.css", "text/css");
-	});
-	server.on("/css/bootstrap.min.css", HTTP_GET, []() { // Route bootstrap.css
-		sendFile("/css/bootstrap.min.css", "text/css");
-	});
-	server.on("/css/all.min.css", HTTP_GET, []() { // Route font-awesome
-		sendFile("/css/all.min.css", "text/css");
-	});
-	server.on("/webfonts/fa-solid-900.woff2", HTTP_GET, []() { // Route font-awesome
-		sendFile("/webfonts/fa-solid-900.woff2", "font/woff2");
-	});
-	server.on("/img/bitcoin-logo.svg", HTTP_GET, []() { // Route bitcoin logo
-		sendFile("/img/bitcoin-logo.svg", "image/svg+xml");
-	});
+	setupRoutes(); // Setup the routes
+	
+	/* Routes for files
+	setupRoute("/", "/index.html", "text/html");
+	setupRoute("/js/script.js", "/js/script.js", "text/javascript");
+	setupRoute("/js/bootstrap.bundle.min.js", "/js/bootstrap.bundle.min.js", "text/javascript");
+	setupRoute("/js/jquery-3.7.1.min.js", "/js/jquery-3.7.1.min.js", "text/javascript");
+	setupRoute("/css/style.css", "/css/style.css", "text/css");
+	setupRoute("/css/bootstrap.min.css", "/css/bootstrap.min.css", "text/css");
+	setupRoute("/css/all.min.css", "/css/all.min.css", "text/css");
+	setupRoute("/webfonts/fa-solid-900.woff2", "/webfonts/fa-solid-900.woff2", "font/woff2");
+	setupRoute("/img/bitcoin-logo.svg", "/img/bitcoin-logo.svg", "image/svg+xml");
+	*/
 
 	// { ssid, password }
 	server.on("/connect", HTTP_POST, []() { // Route for connecting to WiFi
+		Serial.println("POST /connect");
+		Serial.println(server.arg("plain"));
 		bool connected = manageConnectRequest(); // Connecting to WiFi
-		JsonDocument doc; // JSON object
-		doc["status"] = connected ? "OK" : "KO";
-		String response; // JSON string
-		serializeJson(doc, response); // Convert JSON object to string
-		server.send(connected ? 200 : 500, "application/json", response);
+		if(connected) { // Check if connected to WiFi
+			Serial.println("Connected to WiFi! :)");
+			server.send(200, "application/json", "{\"status\":\"OK\"}"); // Success
+			delay(250); // Wait a second (Workaround to complete the send)
+			accessPointEnabled = !WiFi.softAPdisconnect(true); // Disable access point
+		} else {
+			Serial.println("Connection failed! :(");
+			server.send(500, "application/json", "{\"status\":\"KO\"}"); // Error
+		}
 	});
 
 	// { networks: [ { ssid: "test", signal: "80"} ] }
@@ -233,19 +264,23 @@ bool setupAccessPoint() {
 
 // Manage WiFi connection
 bool manageWiFiConnection() {
-	if (WiFi.status() == WL_CONNECTED) // Check if connected to WiFi
-		return true; // If connected exit the function
+	if (millis() - timestampWiFiConnection > 2000) { // Every 2 seconds
+		timestampWiFiConnection = millis(); // Save timestamp
+		if (WiFi.status() == WL_CONNECTED) // Check if connected to WiFi
+			return true; // If connected exit the function
 
-	// Check if credentials are already present
-	if(wiFiSSID != "" && wiFiPassword != "") {
-		if(connectToWiFi()) // Connecting to WiFi
-			return true; // Connection success
-		else
+		// Check if credentials are already present
+		if(wiFiSSID != "" && wiFiPassword != "") {
+			if(connectToWiFi()) // Connecting to WiFi
+				return true; // Connection success
+			else
+				setupAccessPoint(); // Setup access point
+		} else {
 			setupAccessPoint(); // Setup access point
-	} else {
-		setupAccessPoint(); // Setup access point
+		}
+		return false; // Connection failed
 	}
-	return false; // Connection failed
+	return true; // Connection success
 }
 
 // Manage the LED matrix
@@ -269,7 +304,7 @@ void manageLedMatrix() {
 			return; // If not connected exit the function
 		}
 
-        // Call every 6 minutes (For limiting API usage)
+        // Call every 6 minutes (To limit API usage)
         currentMillis = millis();
         if (currentMillis - timestampStockData > 360000 || timestampStockData == 0) {
             timestampStockData = currentMillis; // Save timestamp
@@ -338,7 +373,7 @@ bool setupLittleFS() {
 
 // Setup
 void setup() {
-	Serial.begin(9600); // Start serial 
+	Serial.begin(9600); // Start serial
 	setupLittleFS(); // Setup LittleFS
 	manageWiFiConnection(); // Manage WiFi connection (Pass by if connected to WiFi, otherwise handle the connection process)
 	setupWebClient(); // Setup web client

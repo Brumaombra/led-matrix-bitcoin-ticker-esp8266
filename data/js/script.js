@@ -1,4 +1,4 @@
-const ESPIP = "http://localhost:3000";
+const ESPIP = ""; // http://localhost:3000
 
 // Document ready
 $(document).ready(() => {
@@ -77,6 +77,29 @@ const sendRequest = () => {
         $("#errorModalMessage").text("An error occurred while connecting to the WiFi network"); // Set the error message
         $("#modalError").modal("show"); // Open the modal
     });
+    
+    /*
+    $.ajax({
+        url: `${ESPIP}/connect`, // URL for the request
+        type: "POST", // Request type
+        contentType: "application/json", // Content-Type header
+        dataType: "json", // Expected data type of the response
+        data: JSON.stringify(request), // Data to be sent to the server
+        success: data => {
+            setBusy(false); // Busy off
+            if (data.status === "OK") {
+                $("#modalSuccess").modal("show"); // Open the modal if status is "OK"
+            } else {
+                $("#errorModalMessage").text("An error occurred while connecting to the WiFi network"); // Set the error message
+                $("#modalError").modal("show"); // Open the modal
+            }
+        }, error: () => {
+            setBusy(false); // Busy off
+            $("#errorModalMessage").text("An error occurred while connecting to the WiFi network"); // Set the error message
+            $("#modalError").modal("show"); // Open the modal
+        }
+    });
+    */
 };
 
 // Busy
