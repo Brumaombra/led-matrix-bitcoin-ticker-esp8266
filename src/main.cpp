@@ -37,7 +37,7 @@ String apiKey = ""; // Your API key for financialmodelingprep.com <- TODO - Chan
 #define DATA_PIN 13 // MOSI <- TODO - Change with your data (If needed)
 #define CS_PIN 15 // SS <- TODO - Change with your data (If needed)
 
-MD_Parola P = MD_Parola(HARDWARE_TYPE, CS_PIN, MAX_DEVICES); //  (HARDWARE SPI)
+MD_Parola P = MD_Parola(HARDWARE_TYPE, CS_PIN, MAX_DEVICES);
 uint8_t scrollDelay = 30; // Matrix refresh delay
 textEffect_t scrollEffect = PA_SCROLL_LEFT; // Scrolling effect
 textPosition_t scrollAlign = PA_LEFT; // Scroll direction
@@ -51,18 +51,15 @@ bool newMessageAvailable = true; // New available message
 
 // Formatting number
 String formatStringNumber(String numberToFormat) {
-    if (numberToFormat.indexOf(".") < 0) { // Adding decimals if needed
+    if (numberToFormat.indexOf(".") < 0) // Adding decimals if needed
         numberToFormat += ",00";
-    }
-
     numberToFormat.replace(".", ","); // Substitute points with commas (I'm italian XD)
 
     // Formatting decimals
-    if (numberToFormat.length() - numberToFormat.indexOf(",") < 3) {
+    if (numberToFormat.length() - numberToFormat.indexOf(",") < 3)
         numberToFormat += "0";
-    } else {
+    else
         numberToFormat = numberToFormat.substring(0, numberToFormat.indexOf(",") + 3);
-    }
 
     // Adding thousands separator
     unsigned int currLength = 6;
@@ -70,16 +67,13 @@ String formatStringNumber(String numberToFormat) {
         numberToFormat = numberToFormat.substring(0, numberToFormat.length() - currLength) + "." + numberToFormat.substring(numberToFormat.length() - currLength);
         currLength += 4;
     }
-
     return numberToFormat;
 }
 
 // Formatting percentage
 String formatStringPercentage(String percentageToFormat) {
-    if (percentageToFormat.indexOf(".") < 0) { // Exit if not necessary
+    if (percentageToFormat.indexOf(".") < 0) // Exit if not necessary
         return percentageToFormat + ",00";
-    }
-
     percentageToFormat.replace(".", ","); // Substitute points with commas
     percentageToFormat = percentageToFormat.substring(0, percentageToFormat.indexOf(",") + 3);
     return percentageToFormat;
@@ -89,28 +83,23 @@ String formatStringPercentage(String percentageToFormat) {
 void getStockDataAPI() {
 	String host = "financialmodelingprep.com";
 	String url = "https://" + host + "/api/v3/quote/BTCUSD?apikey=" + apiKey;
-
 	if (client.connect(host, 443)) { // Connecting to the server
 		http.begin(client, url); // HTTP call
-
 		if (http.GET() == HTTP_CODE_OK) {
 			Serial.println("Response body: " + http.getString());
-
-			// Creating the JSON object
-			JsonDocument doc; // (ESP.getMaxFreeBlockSize() - 512);
-			DeserializationError error = deserializeJson(doc, http.getString());
-
-			if (error) {
+			JsonDocument doc; // Create the JSON object
+			DeserializationError error = deserializeJson(doc, http.getString()); // Deserialize the JSON object
+			if (error) { // Error while parsing the JSON
 				Serial.printf("Error while parsing the JSON: %s\n", error.c_str());
 				http.end();
 				return;
 			}
 
 			// Create the scrolling message
-			stripMessagePrice = "BTC: " + formatStringNumber(doc[0]["price"].as < String > ()) + " $ (" + formatStringPercentage(doc[0]["changesPercentage"].as < String > ()) + "%)_"; // Price
-			dailyChange = "Daily Change: " + formatStringNumber(doc[0]["change"].as < String > ()) + " $_"; // Daily Change
-			stripMessageHighLow = "Year High: " + formatStringNumber(doc[0]["yearHigh"].as < String > ()) + " $  -  Year Low: " + formatStringNumber(doc[0]["yearLow"].as < String > ()) + " $_"; // Year High/Low
-			stripMessageOpen = "Open: " + formatStringNumber(doc[0]["open"].as < String > ()) + " $_"; // Open
+			stripMessagePrice = "BTC: " + formatStringNumber(doc[0]["price"].as<String>()) + " $ (" + formatStringPercentage(doc[0]["changesPercentage"].as<String>()) + "%)_"; // Price
+			dailyChange = "Daily Change: " + formatStringNumber(doc[0]["change"].as<String>()) + " $_"; // Daily Change
+			stripMessageHighLow = "Year High: " + formatStringNumber(doc[0]["yearHigh"].as<String>()) + " $  -  Year Low: " + formatStringNumber(doc[0]["yearLow"].as<String>()) + " $_"; // Year High/Low
+			stripMessageOpen = "Open: " + formatStringNumber(doc[0]["open"].as<String>()) + " $_"; // Open
 			http.end(); // Close connection
 		} else {
 			Serial.printf("HTTP call error: %d\n", http.GET());
@@ -124,8 +113,10 @@ void getStockDataAPI() {
 }
 
 // Connecting to WiFi
-bool connectToWiFi() {
-	WiFi.begin(wiFiSSID.c_str(), wiFiPassword.c_str());
+bool connectToWiFi(const String &wiFiSSIDTemp = "", const String &wiFiPasswordTemp = "") {
+	String wiFiSSIDTest = wiFiSSIDTemp != "" ? wiFiSSIDTemp : wiFiSSID; // Test network SSID
+	String wiFiPasswordTest = wiFiPasswordTemp != "" ? wiFiPasswordTemp : wiFiPassword; // Test network password
+	WiFi.begin(wiFiSSIDTest.c_str(), wiFiPasswordTest.c_str()); // Connecting to the WiFi
 	int maxTry = 10; // Maximum number of attempts to connect to WiFi
 	int count = 0; // Counter
 	while (WiFi.status() != WL_CONNECTED) {
@@ -134,9 +125,12 @@ bool connectToWiFi() {
 		count++;
 		delay(1000);
 	}
+	wiFiSSID = wiFiSSIDTest; // Update network SSID
+	wiFiPassword = wiFiPasswordTest; // Update network password
 	return true; // Connection success
 }
 
+// Manage the sending of the file
 bool sendFile(String path, String type) {
 	if (LittleFS.exists(path)) { // Check if file exists
 		File file = LittleFS.open(path, "r");
@@ -158,11 +152,11 @@ bool manageConnectRequest() {
 		return false;
 	if (doc["ssid"].isNull() || doc["ssid"].isNull()) // Check if the JSON object is empty
 		return false;
-	wiFiSSID = doc["ssid"].as<String>();; // Network SSID
-	wiFiPassword = doc["password"].as<String>();; // Network password
+	String wiFiSSIDTemp = doc["ssid"].as<String>();; // Network SSID
+	String wiFiPasswordTemp = doc["password"].as<String>();; // Network password
 	Serial.println("SSID: " + wiFiSSID);
 	Serial.println("Password: " + wiFiPassword);
-	bool connected = connectToWiFi(); // Connecting to WiFi
+	bool connected = connectToWiFi(wiFiSSIDTemp, wiFiPasswordTemp); // Connecting to WiFi
 	if(connected) { // Check if connected to WiFi
 		Serial.println("Connected to WiFi");
 		accessPointEnabled = !WiFi.softAPdisconnect(true); // Access point disabled
@@ -204,6 +198,9 @@ bool setupAccessPoint() {
 	server.on("/webfonts/fa-solid-900.woff2", HTTP_GET, []() { // Route font-awesome
 		sendFile("/webfonts/fa-solid-900.woff2", "font/woff2");
 	});
+	server.on("/img/bitcoin-logo.svg", HTTP_GET, []() { // Route bitcoin logo
+		sendFile("/img/bitcoin-logo.svg", "image/svg+xml");
+	});
 
 	// { ssid, password }
 	server.on("/connect", HTTP_POST, []() { // Route for connecting to WiFi
@@ -239,7 +236,7 @@ bool manageWiFiConnection() {
 	if (WiFi.status() == WL_CONNECTED) // Check if connected to WiFi
 		return true; // If connected exit the function
 
-	// Check if credentials are present
+	// Check if credentials are already present
 	if(wiFiSSID != "" && wiFiPassword != "") {
 		if(connectToWiFi()) // Connecting to WiFi
 			return true; // Connection success
@@ -264,7 +261,7 @@ void manageLedMatrix() {
 		
 		// Check if connected to WiFi
 		if(WiFi.status() != WL_CONNECTED) {
-			String errorMessage = "Network error, not connected to WiFi";
+			String errorMessage = "Not connected to Wi-Fi. Use the 'Bitcoin-Ticker' access point to enter the Wi-Fi credentials.";
 			Serial.println(errorMessage);
 			errorMessage.toCharArray(newMessage, errorMessage.length() + 1); // Copy the error message and convert it to char[]
 			P.displayText(newMessage, scrollAlign, scrollDelay, scrollPause, scrollEffect, scrollEffect); // Print the error message on the matrix

@@ -1,46 +1,53 @@
-# Bitcoin Price Ticker for MAX72XX LED Matrix
+
+# ESP8266 LED Matrix Bitcoin Ticker
 
 ## Overview
-This project displays live Bitcoin prices and various metrics on a MAX72XX LED matrix using an ESP8266 microcontroller. It retrieves data from a financial API and shows information such as the current price, daily change, yearly high/low, and the opening price.
+This project turns an ESP8266 microcontroller and a MAX7219 LED matrix into a dynamic Bitcoin ticker. It displays the latest Bitcoin price information, providing a unique and informative crypto display.
 
-## Requirements
-- ESP8266 WiFi Module
-- MAX72XX LED Matrix
-- Arduino IDE
-- Libraries:
-  - MD_Parola
-  - MD_MAX72xx
-  - ArduinoJson
-  - ESP8266WiFi
-  - ESP8266HTTPClient
-  - WiFiClientSecure
+## Features
+- **Real-Time Bitcoin Price Display:** Shows up-to-date Bitcoin prices.
+- **WiFi Connectivity:** Connects to the internet to fetch real-time data.
+- **Web Server for Configuration:** Includes a web server for easy WiFi configuration.
+- **Scrolling Text Display:** Displays various financial data in a scrolling format.
+
+## Hardware Requirements
+- ESP8266 Microcontroller
+- MAX7219 LED Matrix
+- Power supply for the ESP8266
+
+## Hardware Configuration
+- **LED Matrix Control:** Uses `MD_Parola` and `MD_MAX72xx` libraries.
+- **Pin Configuration:** Customize CLK, DATA, and CS pin connections.
+- **Modular Setup:** Supports a variable number of LED matrix modules.
+
+## Software Dependencies
+- PlatformIO
+- Libraries: MD_Parola, MD_MAX72xx, SPI, ESP8266WiFi, ESP8266WebServer, ESP8266HTTPClient, ArduinoJson, WiFiClientSecure, LittleFS.
 
 ## Installation
-1. Install Arduino IDE from [the official website](https://www.arduino.cc/en/software).
-2. Open Arduino IDE, go to `Sketch > Include Library > Manage Libraries`.
-3. Install the following libraries: `MD_Parola`, `MD_MAX72xx`, `ArduinoJson`, `ESP8266WiFi`, `ESP8266HTTPClient`, `WiFiClientSecure`.
-4. Connect your ESP8266 module to your computer.
-5. Copy the provided code into a new Arduino sketch.
+1. Connect the MAX7219 LED matrix to the ESP8266 following the specified pin configuration.
+2. Compile and upload the `main.cpp` file to the ESP8266 using PlatformIO.
+3. Place the contents of the `data` folder in the root directory of the ESP8266's file system.
 
-## Configuration
-Before running the sketch, make sure to configure the following parameters:
-- `apiKey`: Your API key for financialmodelingprep.com
-- `MAX_DEVICES`: Number of modules in your LED matrix
-- `CLK_PIN`, `DATA_PIN`, `CS_PIN`: Pin configuration for your ESP8266
-- `ssid`: Your WiFi network name
-- `password`: Your WiFi network password
+## Configuration and Usage
+1. Initially, the ESP8266 will create an access point named "Bitcoin-Ticker."
+2. Connect to this access point and access the ESP8266's IP in a browser to configure WiFi settings.
+3. Enter WiFi network credentials; the device will restart and connect to your network.
+4. The LED matrix will then start showing the current Bitcoin price and other financial data.
 
-## Usage
-Upload the sketch to your ESP8266 module. Once uploaded and running, the device will connect to your WiFi network, fetch Bitcoin price data from the API, and display it on the LED matrix.
+## API Configuration
+- **Financial Data Source:** The ticker fetches data from `financialmodelingprep.com`.
+- **API Key Required:** Users must provide their API key for data access.
 
-## Customization
-You can customize the display settings such as scroll speed, delay, and text effects by modifying the corresponding variables in the code.
+## Customization Options
+- **Number of LED Modules:** Adjustable based on your setup.
+- **Pinout Configuration:** Modify CLK, DATA, and CS pins as needed.
+- **Scroll Speed:** Adjust the scroll delay for the text display.
 
-## Troubleshooting
-Ensure that your ESP8266 is correctly connected and that the correct port is selected in the Arduino IDE. If you encounter issues with API connectivity, verify your API key and internet connection.
+For detailed setup and customization instructions, refer to comments within the `main.cpp` file.
 
 ## Author
-Mauro Brambilla - April 2023
+Mauro Brambilla (brumaombra)
 
 ## License
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is open-source and available under MIT License.

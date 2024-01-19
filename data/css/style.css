@@ -2,6 +2,7 @@ html, body {
     background-color: #F8F9FA;
 }
 
+/* Buttons */
 .btn {
     font-weight: 700;
 }
@@ -26,6 +27,13 @@ html, body {
 }
 .btn-submit {
     width: 100%;
+}
+.bitcoin-logo {
+    text-align: center;
+}
+.bitcoin-logo img {
+    width: 130px;
+    height: 130px;
 }
 
 /* Button refresh */
@@ -77,4 +85,14 @@ html, body {
 }
 .error-icon {
     color: #dc3545;
+}
+
+/* Credits */
+.credits {
+    position: absolute;
+    margin-bottom: 0;
+    bottom: 10px;
+    left: 10px;
+    font-size: 13px;
+    font-weight: 100;
 }
