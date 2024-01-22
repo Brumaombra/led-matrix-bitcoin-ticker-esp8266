@@ -6,16 +6,17 @@
 #include <ArduinoJson.h>
 #include <WiFiClientSecure.h>
 #include <LittleFS.h>
+#include <ESPAsyncTCP.h>
 #include <ESPAsyncWebServer.h>
 
-// Setup access point and WiFi
+AsyncWebServer server(80); // Web server
+AsyncWebSocket ws("/ws"); // Web socket
+WiFiClientSecure client; // Client object
+HTTPClient http; // HTTP object
 const char *accessPointSSID = "Bitcoin-Ticker"; // Access point SSID
 String wiFiSSID = ""; // Network SSID
 String wiFiPassword = ""; // Network password
 bool accessPointEnabled = false; // If access point enabled
-AsyncWebServer server(80);
-WiFiClientSecure client; // Client object
-HTTPClient http; // HTTP object
 unsigned long currentMillis; // Current time
 unsigned long timestampStockData = 0; // Timestamp stock data
 unsigned long timestampWiFiConnection = 0; // Timestamp WiFi connection
@@ -120,6 +121,7 @@ bool connectToWiFi(const String &wiFiSSIDTemp = "", const String &wiFiPasswordTe
 	int maxTry = 50; // Maximum number of attempts to connect to WiFi
 	int count = 0; // Counter
 	Serial.print("Connecting to WiFi");
+	ws.textAll("WIFI_TRY"); // Send message
 	while (WiFi.status() != WL_CONNECTED) {
 		if(count >= maxTry)
 			return false; // Connection failed
@@ -133,73 +135,22 @@ bool connectToWiFi(const String &wiFiSSIDTemp = "", const String &wiFiPasswordTe
 	return true; // Connection success
 }
 
-/* Manage the "connect" HTTP request
-bool manageConnectRequest() {
-	String request = server.arg("plain"); // JSON string
-	Serial.println("Request: " + request);
-	JsonDocument doc; // JSON object
-	DeserializationError error = deserializeJson(doc, request); // Convert JSON string to JSON object
-	if (error) // Check if deserialization is OK
-		return false;
-	if (doc["ssid"].isNull() || doc["ssid"].isNull()) // Check if the JSON object is empty
-		return false;
-	String wiFiSSIDTemp = doc["ssid"].as<String>();; // Network SSID
-	String wiFiPasswordTemp = doc["password"].as<String>();; // Network password
-	Serial.println("SSID: " + wiFiSSIDTemp);
-	Serial.println("Password: " + wiFiPasswordTemp);
-	return connectToWiFi(wiFiSSIDTemp, wiFiPasswordTemp); // Connecting to WiFi
-}
-*/
-
-// Setup delle route semplificato
+// Setup delle route
 void setupRoutes() {
 	server.serveStatic("/", LittleFS, "/").setDefaultFile("index.html"); // Serve web page
-	server.onNotFound([](AsyncWebServerRequest *request) { // Error handling
-		request->send(404); // Page not found
+	server.onNotFound([](AsyncWebServerRequest *request) { // Page not found
+		request->send(404);
 	});
 
-	/* { ssid, password }
-	server.on("/connect", HTTP_POST, []() { // Route for connecting to WiFi
-		Serial.println("POST /connect");
-		Serial.println(server.arg("plain"));
-		bool connected = manageConnectRequest(); // Connecting to WiFi
-		if(connected) { // Check if connected to WiFi
-			Serial.println("Connected to WiFi! :)");
-			server.send(200, "application/json", "{\"status\":\"OK\"}"); // Success
-			delay(250); // Wait a second (Workaround to complete the send)
-			accessPointEnabled = !WiFi.softAPdisconnect(true); // Disable access point
-		} else {
-			Serial.println("Connection failed! :(");
-			server.send(500, "application/json", "{\"status\":\"KO\"}"); // Error
-		}
-	});
-	*/
-
+	// Connect to WiFi
 	server.on("/connect", HTTP_GET, [](AsyncWebServerRequest *request) {
 		String ssid = request->getParam("ssid")->value();
 		String password = request->getParam("password")->value();
 		Serial.println("SSID: " + ssid);
 		Serial.println("Password: " + password);
 		WiFi.begin(ssid.c_str(), password.c_str());
+		ws.textAll("WIFI_TRY"); // Send message
 		request->send(200, "application/json", "{\"status\":\"OK\"}"); // Success
-
-		/*
-		unsigned long startTime = millis();
-		while (WiFi.status() != WL_CONNECTED && millis() - startTime < 10000) {
-			Serial.print(".");
-			delay(500);
-		}
-
-		// Check if connected to WiFi
-		if(WiFi.status() == WL_CONNECTED) {
-			Serial.println("Connected to WiFi! :)");
-			request->send(200, "application/json", "{\"status\":\"OK\"}"); // Success
-			accessPointEnabled = !WiFi.softAPdisconnect(true); // Disable access point
-		} else {
-			Serial.println("Connection failed! :(");
-			request->send(500, "application/json", "{\"status\":\"KO\"}"); // Error
-		}
-		*/
 	});
 
 	// Send the list of networks
@@ -231,37 +182,25 @@ bool setupAccessPoint() {
 
 // Manage WiFi connection
 bool manageWiFiConnection() {
-	/*
-	if(currentRequest = nullptr) { // Manage the current request (route "/connect")
-		if(WiFi.status() != WL_CONNECTED && millis() - currentRequestTimestamp < 10000)
-			return false; // If not connected and not more than 10 seconds exit the function
-		if(WiFi.status() == WL_CONNECTED) { // Check if connected to WiFi
-			Serial.println("Connected to WiFi! :)");
-			currentRequest->send(200, "application/json", "{\"status\":\"OK\"}"); // Success
-			return true;
-		} else {
-			Serial.println("Connection failed! :(");
-			currentRequest->send(500, "application/json", "{\"status\":\"KO\"}"); // Error
-			return false;
-		}
-		currentRequest = nullptr; // Reset the current request
-	}
-	*/
-
 	if (millis() - timestampWiFiConnection > 2000) { // Every 2 seconds
 		timestampWiFiConnection = millis(); // Save timestamp
-		if (WiFi.status() == WL_CONNECTED) // Check if connected to WiFi
+		if (WiFi.status() == WL_CONNECTED) { // Check if connected to WiFi
+			ws.textAll("WIFI_CON"); // Send message
 			return true; // If connected exit the function
+		}
 
 		// Check if credentials are already present
 		if(wiFiSSID != "" && wiFiPassword != "") {
-			if(connectToWiFi()) // Connecting to WiFi
+			if(connectToWiFi()) { // Connecting to WiFi
+				ws.textAll("WIFI_CON"); // Send message
 				return true; // Connection success
-			else
+			} else {
 				setupAccessPoint(); // Setup access point
+			}
 		} else {
 			setupAccessPoint(); // Setup access point
 		}
+		ws.textAll("WIFI_DIS"); // Send message
 		return false; // Connection failed
 	}
 	return true; // Connection success
@@ -355,9 +294,48 @@ bool setupLittleFS() {
 	}
 }
 
+// Manage the different types of requests
+void manageResponse(String message, AsyncWebSocketClient *client) {
+	JsonDocument doc; // JSON object
+	if (deserializeJson(doc, message)) { // Check if there is an error
+		Serial.print("Error during the JSON parsing");
+		return;
+	}
+
+	// Response switch
+	String type = doc["type"]; // Get the response type
+};
+
+// Web socket event
+void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len) {
+	switch(type) { // Message type
+		case WS_EVT_CONNECT: // Client connected
+			Serial.println("Websocket client connection received");
+			break;
+		case WS_EVT_DISCONNECT: // Client disconnected
+			Serial.println("Client disconnected");
+			break;
+		case WS_EVT_ERROR: // Error
+			Serial.println("Error");
+			break;
+		case WS_EVT_PONG:
+			Serial.println("Pong received");
+			break;
+		case WS_EVT_DATA: // Data received
+			String message = "";
+			for(size_t i = 0; i < len; i++) // Create the message
+				message += (char) data[i];
+			manageResponse(message, client);
+			Serial.print("Data received: " + message);
+			break;
+	}
+}
+
 // Setup server
 void setupServer() {
-	setupRoutes(); // Setup the routes
+	setupRoutes(); // Setup routes
+	ws.onEvent(onWsEvent); // Web socket event
+  	server.addHandler(&ws); // Web socket handler
 	server.begin(); // Start the server
 }
 

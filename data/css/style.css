@@ -7,12 +7,20 @@ html, body {
     font-weight: 700;
 }
 
+/* navbar */
+.navbar {
+    border-bottom: 2px solid #dfe4ea;
+}
+.navbarLogo {
+    height: 35px;
+    width: 35px;
+}
+
 /* Centered container */
 .center-container {
     display: flex;
     justify-content: center;
     align-items: center;
-    height: 100vh;
 }
 
 /* Form */

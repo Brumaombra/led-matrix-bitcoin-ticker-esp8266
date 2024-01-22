@@ -12,6 +12,31 @@
 </head>
 
 <body>
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg bg-body-tertiary mb-5">
+        <div class="container">
+            <a class="navbar-brand" href="#">
+                <img src="img/bitcoin-logo.svg" class="navbarLogo me-2" alt="Bitcoin logo" />Bitcoin ticker
+            </a>
+            <!-- <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarSupportedContent">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                    <li class="nav-item">
+                        <a class="nav-link active" aria-current="page" href="#">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#">Link</a>
+                    </li>
+                </ul>
+                <div class="me-auto"></div>
+                <button id="newReadButton" type="button" class="btn btn-primary me-2" data-bs-toggle="modal" data-bs-target="#newReadModal"><i class="fa-solid fa-expand me-2"></i>Nuova scansione</button>
+                <button id="settingsButton" type="button" class="btn btn-secondary" data-bs-toggle="modal" data-bs-target="#settingsModal" title="Impostazioni"><i class="fa-solid fa-gear"></i></button>
+            </div> -->
+        </div>
+    </nav>
+    
     <!-- Centered container -->
     <div class="center-container">
         <!-- Form -->
@@ -34,7 +59,7 @@
                     <label class="form-label">Password</label>
                     <input id="inputPassword" type="password" class="form-control">
                 </div>
-                <button class="btn btn-primary btn-submit" onclick="sendRequest()">
+                <button class="btn btn-primary btn-submit" onclick="connectToWiFi()">
                     <i class="fa-solid fa-wifi me-1"></i>
                     CONNECT
                 </button>

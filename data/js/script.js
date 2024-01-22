@@ -1,4 +1,5 @@
 const ESPIP = ""; // http://localhost:3000
+let socket; // The web socket
 
 // Document ready
 $(document).ready(() => {
@@ -8,6 +9,7 @@ $(document).ready(() => {
 // Init function
 const init = () => {
     addEventListeners(); // Add event listeners
+    connectToWebSocket(); // Connect to the web socket
     getNetworks(); // Get the networks
 };
 
@@ -16,8 +18,40 @@ const addEventListeners = () => {
     $("#inputPassword").keypress(event => {
         const keycode = event.keyCode || event.which;
         if (keycode == "13") // Enter pressed
-            sendRequest(); // Send the request
+            connectToWiFi(); // Send the request
     });
+};
+
+// Connect to the web socket
+const connectToWebSocket = () => {
+    socket = new WebSocket(`ws://${window.location.hostname}/ws`); // Create the WebSocket
+    socket.onopen = () => {
+        console.log("WebSocket connection opened"); // Log the connection
+    };
+    socket.onclose = () => {
+        console.log("WebSocket connection closed"); // Log the disconnection
+    };
+    socket.onmessage = event => {
+        manageResponse(event.data); // Manage the response
+    };
+};
+
+// Manage the different types of requests
+const manageResponse = response => {
+    switch (response) {
+        case "WIFI_CON":
+            console.log("WiFi connesso...");
+            break;
+        case "WIFI_DIS":
+            console.log("WiFi disconnesso...");
+            break;
+        case "WIFI_TRY":
+            console.log("Tentativo di connessione al WiFi...");
+            break;
+        default:
+            // Default
+            break;
+    }
 };
 
 // Get the SSIDs
@@ -54,7 +88,7 @@ const getNetworks = () => {
 };
 
 // Send the request to the server
-const sendRequest = () => {
+const connectToWiFi = () => {
     const ssid = $("#inputSSID").val();
     const password = $("#inputPassword").val();
     setBusy(true); // Busy on
