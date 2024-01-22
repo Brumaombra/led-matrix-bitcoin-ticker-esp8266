@@ -2,19 +2,18 @@
 #include <MD_MAX72xx.h>
 #include <SPI.h>
 #include <ESP8266WiFi.h>
-#include <ESP8266WebServer.h>
 #include <ESP8266HTTPClient.h>
 #include <ArduinoJson.h>
 #include <WiFiClientSecure.h>
 #include <LittleFS.h>
+#include <ESPAsyncWebServer.h>
 
 // Setup access point and WiFi
 const char *accessPointSSID = "Bitcoin-Ticker"; // Access point SSID
 String wiFiSSID = ""; // Network SSID
 String wiFiPassword = ""; // Network password
 bool accessPointEnabled = false; // If access point enabled
-ESP8266WebServer server(80);
-
+AsyncWebServer server(80);
 WiFiClientSecure client; // Client object
 HTTPClient http; // HTTP object
 unsigned long currentMillis; // Current time
@@ -134,7 +133,7 @@ bool connectToWiFi(const String &wiFiSSIDTemp = "", const String &wiFiPasswordTe
 	return true; // Connection success
 }
 
-// Manage the "connect" HTTP request
+/* Manage the "connect" HTTP request
 bool manageConnectRequest() {
 	String request = server.arg("plain"); // JSON string
 	Serial.println("Request: " + request);
@@ -150,84 +149,16 @@ bool manageConnectRequest() {
 	Serial.println("Password: " + wiFiPasswordTemp);
 	return connectToWiFi(wiFiSSIDTemp, wiFiPasswordTemp); // Connecting to WiFi
 }
-
-/* Manage the sending of the file
-bool sendFile(String path, String type) {
-	if (LittleFS.exists(path)) { // Check if file exists
-		File file = LittleFS.open(path, "r");
-		server.streamFile(file, type); // Send the file
-		file.close();
-		return true;
-	} else {
-		server.send(404, "text/plain", "404: Not Found");
-		return false;
-	}
-}
 */
-
-// Manage the sending of the file
-bool sendFile(const String& path, const String& type) {
-    if (!LittleFS.exists(path)) {
-        server.send(404, "text/plain", "404: Not Found");
-        return false;
-    }
-
-    File file = LittleFS.open(path, "r");
-    server.streamFile(file, type);
-    file.close();
-    return true;
-}
 
 // Setup delle route semplificato
 void setupRoutes() {
-    const char* routes[][3] = {
-        {"/", "/index.html", "text/html"},
-        {"/js/script.js", "/js/script.js", "text/javascript"},
-		{"/js/bootstrap.bundle.min.js", "/js/bootstrap.bundle.min.js", "text/javascript"},
-		{"/js/jquery-3.7.1.min.js", "/js/jquery-3.7.1.min.js", "text/javascript"},
-		{"/css/style.css", "/css/style.css", "text/css"},
-		{"/css/bootstrap.min.css", "/css/bootstrap.min.css", "text/css"},
-		{"/css/all.min.css", "/css/all.min.css", "text/css"},
-		{"/webfonts/fa-solid-900.woff2", "/webfonts/fa-solid-900.woff2", "font/woff2"},
-		{"/img/bitcoin-logo.svg", "/img/bitcoin-logo.svg", "image/svg+xml"}
-    };
+	server.serveStatic("/", LittleFS, "/").setDefaultFile("index.html"); // Serve web page
+	server.onNotFound([](AsyncWebServerRequest *request) { // Error handling
+		request->send(404); // Page not found
+	});
 
-	// Create all the routes
-    for (auto& route : routes) {
-        server.on(route[0], HTTP_GET, [route]() {
-            sendFile(route[1], route[2]);
-        });
-    }
-}
-
-/* Setup the routes
-void setupRoute(const String& request, const String& path, const String& type) {
-    server.on(request, HTTP_GET, [path, type]() { sendFile(path, type); });
-}
-*/
-
-// Setting up the access point
-bool setupAccessPoint() {
-	if(accessPointEnabled) // Check if already enabled
-		return true; // If enabled exit the function
-	accessPointEnabled = WiFi.softAP(accessPointSSID); // Start the access point
-	if(!accessPointEnabled) // Check if enabled
-		return false; // If not enabled exit the function
-	setupRoutes(); // Setup the routes
-	
-	/* Routes for files
-	setupRoute("/", "/index.html", "text/html");
-	setupRoute("/js/script.js", "/js/script.js", "text/javascript");
-	setupRoute("/js/bootstrap.bundle.min.js", "/js/bootstrap.bundle.min.js", "text/javascript");
-	setupRoute("/js/jquery-3.7.1.min.js", "/js/jquery-3.7.1.min.js", "text/javascript");
-	setupRoute("/css/style.css", "/css/style.css", "text/css");
-	setupRoute("/css/bootstrap.min.css", "/css/bootstrap.min.css", "text/css");
-	setupRoute("/css/all.min.css", "/css/all.min.css", "text/css");
-	setupRoute("/webfonts/fa-solid-900.woff2", "/webfonts/fa-solid-900.woff2", "font/woff2");
-	setupRoute("/img/bitcoin-logo.svg", "/img/bitcoin-logo.svg", "image/svg+xml");
-	*/
-
-	// { ssid, password }
+	/* { ssid, password }
 	server.on("/connect", HTTP_POST, []() { // Route for connecting to WiFi
 		Serial.println("POST /connect");
 		Serial.println(server.arg("plain"));
@@ -242,28 +173,81 @@ bool setupAccessPoint() {
 			server.send(500, "application/json", "{\"status\":\"KO\"}"); // Error
 		}
 	});
+	*/
 
-	// { networks: [ { ssid: "test", signal: "80"} ] }
-	server.on("/networks", HTTP_GET, []() { // Route for getting the WiFi networks
-		Serial.println("GET /networks");
-		JsonDocument doc; // JSON object
-		JsonArray networks = doc["networks"].to<JsonArray>();
-		int numberOfNetworks = WiFi.scanNetworks(); // Get the number of networks 
-		for(int i = 0; i < numberOfNetworks; i++) { // Loop through the WiFi networks
-			JsonObject network = networks.add<JsonObject>();
-			network["ssid"] = WiFi.SSID(i);
-			network["signal"] = WiFi.RSSI(i);
+	server.on("/connect", HTTP_GET, [](AsyncWebServerRequest *request) {
+		String ssid = request->getParam("ssid")->value();
+		String password = request->getParam("password")->value();
+		Serial.println("SSID: " + ssid);
+		Serial.println("Password: " + password);
+		WiFi.begin(ssid.c_str(), password.c_str());
+		request->send(200, "application/json", "{\"status\":\"OK\"}"); // Success
+
+		/*
+		unsigned long startTime = millis();
+		while (WiFi.status() != WL_CONNECTED && millis() - startTime < 10000) {
+			Serial.print(".");
+			delay(500);
 		}
-		String json; // JSON string
-		serializeJson(doc, json); // Convert JSON object to string
-		server.send(200, "application/json", json); // Success
+
+		// Check if connected to WiFi
+		if(WiFi.status() == WL_CONNECTED) {
+			Serial.println("Connected to WiFi! :)");
+			request->send(200, "application/json", "{\"status\":\"OK\"}"); // Success
+			accessPointEnabled = !WiFi.softAPdisconnect(true); // Disable access point
+		} else {
+			Serial.println("Connection failed! :(");
+			request->send(500, "application/json", "{\"status\":\"KO\"}"); // Error
+		}
+		*/
 	});
-	server.begin(); // Start the server
+
+	// Send the list of networks
+	server.on("/networks", HTTP_GET, [](AsyncWebServerRequest *request) {
+		WiFi.scanNetworksAsync([request](int numNetworks) {
+			JsonDocument doc; // JSON object
+			JsonArray networks = doc["networks"].to<JsonArray>();
+			for (int i = 0; i < numNetworks; i++) {
+				JsonObject network = networks.add<JsonObject>();
+				network["ssid"] = WiFi.SSID(i);
+				network["signal"] = WiFi.RSSI(i);
+			}
+			String json;
+			serializeJson(doc, json);
+			request->send(200, "application/json", json);
+		});
+    });
+}
+
+// Setting up the access point
+bool setupAccessPoint() {
+	if(accessPointEnabled) // Check if already enabled
+		return true; // If enabled exit the function
+	accessPointEnabled = WiFi.softAP(accessPointSSID); // Start the access point
+	if(!accessPointEnabled) // Check if enabled
+		return false; // If not enabled exit the function
 	return true; // Access point enabled
 }
 
 // Manage WiFi connection
 bool manageWiFiConnection() {
+	/*
+	if(currentRequest = nullptr) { // Manage the current request (route "/connect")
+		if(WiFi.status() != WL_CONNECTED && millis() - currentRequestTimestamp < 10000)
+			return false; // If not connected and not more than 10 seconds exit the function
+		if(WiFi.status() == WL_CONNECTED) { // Check if connected to WiFi
+			Serial.println("Connected to WiFi! :)");
+			currentRequest->send(200, "application/json", "{\"status\":\"OK\"}"); // Success
+			return true;
+		} else {
+			Serial.println("Connection failed! :(");
+			currentRequest->send(500, "application/json", "{\"status\":\"KO\"}"); // Error
+			return false;
+		}
+		currentRequest = nullptr; // Reset the current request
+	}
+	*/
+
 	if (millis() - timestampWiFiConnection > 2000) { // Every 2 seconds
 		timestampWiFiConnection = millis(); // Save timestamp
 		if (WiFi.status() == WL_CONNECTED) // Check if connected to WiFi
@@ -371,10 +355,17 @@ bool setupLittleFS() {
 	}
 }
 
+// Setup server
+void setupServer() {
+	setupRoutes(); // Setup the routes
+	server.begin(); // Start the server
+}
+
 // Setup
 void setup() {
 	Serial.begin(9600); // Start serial
 	setupLittleFS(); // Setup LittleFS
+	setupServer(); // Setup server
 	manageWiFiConnection(); // Manage WiFi connection (Pass by if connected to WiFi, otherwise handle the connection process)
 	setupWebClient(); // Setup web client
 	setupLedMatrix(); // Setup LED matrix
@@ -382,7 +373,6 @@ void setup() {
 
 // Loop
 void loop() {
-	server.handleClient(); // Request handling
 	manageWiFiConnection(); // Manage WiFi connection (Pass by if connected to WiFi, otherwise handle the connection process)
 	manageLedMatrix(); // Manage the LED matrix
 }
