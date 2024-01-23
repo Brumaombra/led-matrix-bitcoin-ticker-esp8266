@@ -16,8 +16,8 @@ String wiFiSSID = ""; // Network SSID
 String wiFiPassword = ""; // Network password
 bool accessPointEnabled = false; // If access point enabled
 bool disableAccessPoint = false; // If I need to disable the access point
-enum { WIFI_TRY = 2, WIFI_OK = 1, WIFI_KO = 0 }; // Connection status
-byte wiFiConnectionStatus = WIFI_KO; // Connection status
+enum connectionStatus { WIFI_TRY = 2, WIFI_OK = 1, WIFI_KO = 0 }; // Connection status
+connectionStatus wiFiConnectionStatus = WIFI_KO; // Connection status
 unsigned long currentMillis; // Current time
 unsigned long timestampStockData = 0; // Timestamp stock data
 unsigned long timestampWiFiConnection = 0; // Timestamp WiFi connection
@@ -25,6 +25,8 @@ String stripMessagePrice; // Price
 String dailyChange; // Change
 String stripMessageHighLow; // Year High/Low
 String stripMessageOpen; // Open
+enum formatNum { FORMAT_US = 1, FORMAT_EU = 2 }; // Numeric formatting type
+formatNum formatType = FORMAT_US; // Current numeric formatting type
 int switchText = 0; // Variable for the switch
 String apiKey = ""; // Your API key for financialmodelingprep.com <- TODO - Change with your data
 
@@ -51,35 +53,52 @@ char curMessage[BUF_SIZE]; // Current message
 char newMessage[BUF_SIZE]; // New message
 bool newMessageAvailable = true; // New available message
 
+// Replace dots and commas
+String replaceDotsAndCommas(String input) {
+  	for (unsigned int i = 0; i < input.length(); i++) {
+		if (input.charAt(i) == '.') {
+			input.setCharAt(i, ',');
+		} else if (input.charAt(i) == ',') {
+			input.setCharAt(i, '.');
+		}
+	}
+  	return input;
+}
+
 // Formatting number
 String formatStringNumber(String numberToFormat) {
-    if (numberToFormat.indexOf(".") < 0) // Adding decimals if needed
-        numberToFormat += ",00";
-    numberToFormat.replace(".", ","); // Substitute points with commas (I'm italian XD)
-
-    // Formatting decimals
-    if (numberToFormat.length() - numberToFormat.indexOf(",") < 3)
+    byte pointIndex = numberToFormat.indexOf("."); // Add or remove decimals if needed
+    if (pointIndex < 0) { // No decimals => 2000
+        numberToFormat += ".00";
+    } else if (numberToFormat.length() - pointIndex > 3) { // Too many decimals => 2000.85648
+        numberToFormat = numberToFormat.substring(0, numberToFormat.indexOf(".") + 3);
+    } else if (numberToFormat.length() - pointIndex < 3) { // Too few decimals => 2000.5
         numberToFormat += "0";
-    else
-        numberToFormat = numberToFormat.substring(0, numberToFormat.indexOf(",") + 3);
+    } else { // Unsupported format
+        return numberToFormat;
+    }
 
-    // Adding thousands separator
-    unsigned int currLength = 6;
+    // Add thousands separator
+    byte currLength = 6;
     while (numberToFormat.length() > currLength) {
-        numberToFormat = numberToFormat.substring(0, numberToFormat.length() - currLength) + "." + numberToFormat.substring(numberToFormat.length() - currLength);
+        numberToFormat = numberToFormat.substring(0, numberToFormat.length() - currLength) + "," + numberToFormat.substring(numberToFormat.length() - currLength);
         currLength += 4;
     }
+
+	// If setted for EU, replace points and commas
+	if(formatType == FORMAT_EU)
+		numberToFormat = replaceDotsAndCommas(numberToFormat);
     return numberToFormat;
 }
 
-// Formatting percentage
+/* Formatting percentage
 String formatStringPercentage(String percentageToFormat) {
     if (percentageToFormat.indexOf(".") < 0) // Exit if not necessary
         return percentageToFormat + ",00";
     percentageToFormat.replace(".", ","); // Substitute points with commas
     percentageToFormat = percentageToFormat.substring(0, percentageToFormat.indexOf(",") + 3);
     return percentageToFormat;
-}
+} */
 
 // Getting Bitcoin data
 void getStockDataAPI() {
@@ -98,10 +117,10 @@ void getStockDataAPI() {
 			}
 
 			// Create the scrolling message
-			stripMessagePrice = "BTC: " + formatStringNumber(doc[0]["price"].as<String>()) + " $ (" + formatStringPercentage(doc[0]["changesPercentage"].as<String>()) + "%)_"; // Price
-			dailyChange = "Daily Change: " + formatStringNumber(doc[0]["change"].as<String>()) + " $_"; // Daily Change
-			stripMessageHighLow = "Year High: " + formatStringNumber(doc[0]["yearHigh"].as<String>()) + " $  -  Year Low: " + formatStringNumber(doc[0]["yearLow"].as<String>()) + " $_"; // Year High/Low
-			stripMessageOpen = "Open: " + formatStringNumber(doc[0]["open"].as<String>()) + " $_"; // Open
+			stripMessagePrice = "BTC: " + formatStringNumber(doc[0]["price"].as<String>()) + " $ (" + formatStringNumber(doc[0]["changesPercentage"].as<String>()) + "%)"; // Price
+			dailyChange = "Daily Change: " + formatStringNumber(doc[0]["change"].as<String>()) + " $"; // Daily Change
+			stripMessageHighLow = "Year High: " + formatStringNumber(doc[0]["yearHigh"].as<String>()) + " $  -  Year Low: " + formatStringNumber(doc[0]["yearLow"].as<String>()) + " $"; // Year High/Low
+			stripMessageOpen = "Open: " + formatStringNumber(doc[0]["open"].as<String>()) + " $"; // Open
 			http.end(); // Close connection
 		} else {
 			Serial.printf("HTTP call error: %d\n", http.GET());
@@ -270,28 +289,28 @@ void manageLedMatrix() {
         switch (switchText) {
 			case 0:
 				Serial.println("Print: PRICE");
-				stripMessagePrice.toCharArray(newMessage, stripMessagePrice.length());
+				stripMessagePrice.toCharArray(newMessage, stripMessagePrice.length() + 1);
 				P.displayText(newMessage, scrollAlign, scrollDelay, 30000, scrollEffect, scrollEffect); // Still for 30 seconds
 				switchText = 1;
 				break;
 
 			case 1:
 				Serial.println("Print: CHANGE");
-				dailyChange.toCharArray(newMessage, dailyChange.length());
+				dailyChange.toCharArray(newMessage, dailyChange.length() + 1);
 				P.displayText(newMessage, scrollAlign, scrollDelay, scrollPause, scrollEffect, scrollEffect);
 				switchText = 2;
 				break;
 
 			case 2:
 				Serial.println("Print: HIGHLOW");
-				stripMessageHighLow.toCharArray(newMessage, stripMessageHighLow.length());
+				stripMessageHighLow.toCharArray(newMessage, stripMessageHighLow.length() + 1);
 				P.displayText(newMessage, scrollAlign, scrollDelay, scrollPause, scrollEffect, scrollEffect);
 				switchText = 3;
 				break;
 
 			case 3:
 				Serial.println("Print: OPEN");
-				stripMessageOpen.toCharArray(newMessage, stripMessageOpen.length());
+				stripMessageOpen.toCharArray(newMessage, stripMessageOpen.length() + 1);
 				P.displayText(newMessage, scrollAlign, scrollDelay, scrollPause, scrollEffect, scrollEffect);
 				switchText = 0;
 				break;

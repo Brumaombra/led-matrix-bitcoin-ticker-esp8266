@@ -11,6 +11,10 @@ html, body {
 .navbar {
     border-bottom: 2px solid #dfe4ea;
 }
+.navbar-brand p {
+    margin-bottom: 0;
+    font-weight: 500;
+}
 .navbarLogo {
     height: 35px;
     width: 35px;
