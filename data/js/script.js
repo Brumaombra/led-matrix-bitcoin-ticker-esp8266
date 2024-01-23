@@ -1,5 +1,5 @@
 const ESPIP = ""; // http://localhost:3000
-let socket; // The web socket
+const connectionStatus = { WIFI_TRY: 2, WIFI_OK: 1, WIFI_KO: 0 }; // Connection status types
 
 // Document ready
 $(document).ready(() => {
@@ -9,7 +9,6 @@ $(document).ready(() => {
 // Init function
 const init = () => {
     addEventListeners(); // Add event listeners
-    connectToWebSocket(); // Connect to the web socket
     getNetworks(); // Get the networks
 };
 
@@ -20,38 +19,6 @@ const addEventListeners = () => {
         if (keycode == "13") // Enter pressed
             connectToWiFi(); // Send the request
     });
-};
-
-// Connect to the web socket
-const connectToWebSocket = () => {
-    socket = new WebSocket(`ws://${window.location.hostname}/ws`); // Create the WebSocket
-    socket.onopen = () => {
-        console.log("WebSocket connection opened"); // Log the connection
-    };
-    socket.onclose = () => {
-        console.log("WebSocket connection closed"); // Log the disconnection
-    };
-    socket.onmessage = event => {
-        manageResponse(event.data); // Manage the response
-    };
-};
-
-// Manage the different types of requests
-const manageResponse = response => {
-    switch (response) {
-        case "WIFI_CON":
-            console.log("WiFi connesso...");
-            break;
-        case "WIFI_DIS":
-            console.log("WiFi disconnesso...");
-            break;
-        case "WIFI_TRY":
-            console.log("Tentativo di connessione al WiFi...");
-            break;
-        default:
-            // Default
-            break;
-    }
 };
 
 // Get the SSIDs
@@ -87,7 +54,7 @@ const getNetworks = () => {
     });
 };
 
-// Send the request to the server
+// Try to connect to WiFi
 const connectToWiFi = () => {
     const ssid = $("#inputSSID").val();
     const password = $("#inputPassword").val();
@@ -99,17 +66,40 @@ const connectToWiFi = () => {
     fetch(`${ESPIP}/connect?${queryString}`).then(response => {
         return response.json(); // Get the JSON
     }).then(data => {
-        setBusy(false); // Busy off
-        if (data.status === "OK") {
-            $("#modalSuccess").modal("show"); // Open the modal
+        if (data.status == connectionStatus.WIFI_TRY) {
+            checkWiFiConnectionPolling(); // Start polling
             return; // If the status is OK, return
         }
-        throw new Error("Error"); // Throw an error if the status is not OK
+        throw new Error(); // Throw an error
     }).catch(error => {
         setBusy(false); // Busy off
         $("#errorModalMessage").text("An error occurred while connecting to the WiFi network"); // Set the error message
         $("#modalError").modal("show"); // Open the modal
     });
+};
+
+// Check the status of the connection
+const checkWiFiConnectionPolling = () => {
+    const polling = setInterval(() => {
+        fetch(`${ESPIP}/checkConnection`).then(response => {
+            return response.json(); // Get the JSON
+        }).then(data => {
+            if (data.status == connectionStatus.WIFI_TRY) {
+                return; // If the status is TRY, return
+            } else if (data.status == connectionStatus.WIFI_OK) {
+                clearInterval(polling); // Stop polling
+                setBusy(false); // Busy off
+                $("#modalSuccess").modal("show"); // Open the modal
+                return; // If the status is OK, return
+            }
+            throw new Error(); // Throw an error
+        }).catch(error => {
+            clearInterval(polling); // Stop polling
+            setBusy(false); // Busy off
+            $("#errorModalMessage").text("An error occurred while connecting to the WiFi network"); // Set the error message
+            $("#modalError").modal("show"); // Open the modal
+        });
+    }, 2000); // Every 2 seconds
 };
 
 // Busy

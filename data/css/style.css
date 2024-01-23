@@ -36,12 +36,11 @@ html, body {
 .btn-submit {
     width: 100%;
 }
-.bitcoin-logo {
+.network-logo {
     text-align: center;
 }
-.bitcoin-logo img {
-    width: 130px;
-    height: 130px;
+.network-logo i {
+    font-size: 80px;
 }
 
 /* Button refresh */
