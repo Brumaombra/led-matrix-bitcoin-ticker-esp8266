@@ -99,7 +99,7 @@ const checkWiFiConnectionPolling = () => {
             $("#errorModalMessage").text("An error occurred while connecting to the WiFi network"); // Set the error message
             $("#modalError").modal("show"); // Open the modal
         });
-    }, 2000); // Every 2 seconds
+    }, 1000); // Every 1 second
 };
 
 // Busy

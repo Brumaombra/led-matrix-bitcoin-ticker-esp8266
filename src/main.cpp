@@ -25,7 +25,7 @@ enum formatNum { FORMAT_US = 1, FORMAT_EU = 2 }; // Numeric formatting type
 formatNum formatType = FORMAT_US; // Current numeric formatting type
 enum printType { PRINT_PRICE = 0, PRINT_CHANGE = 1, PRINT_HIGH_LOW = 2, PRINT_OPEN = 3 }; // Print type
 printType switchText = PRINT_PRICE; // Variable for the switch
-char apiKey[35] = ""; // Your API key for financialmodelingprep.com <- TODO - Change with your data
+char apiKey[35] = "8b5e75db3ac93df1144f0743f2b5b786"; // Your API key for financialmodelingprep.com <- TODO - Change with your data
 
 #define PRINT(s, x)
 #define PRINTS(x)
@@ -58,6 +58,13 @@ bool newMessageAvailable = true; // New available message
 void stringCopy(char* destination, const char* text, int length) {
     strncpy(destination, text, length - 1); // Copy the string
     destination[length - 1] = '\0'; // Add the terminating character
+}
+
+// Print the message on the matrix
+void printOnLedMatrix(const char* message, const byte stringLength, uint16_t messageStill = scrollPause) {
+	stringCopy(newMessage, message, stringLength); // Copy the message
+	P.displayText(newMessage, scrollAlign, scrollDelay, messageStill, scrollEffect, scrollEffect); // Print the message on the matrix
+	newMessageAvailable = true; // New message available
 }
 
 // Replace dots and commas
@@ -146,37 +153,42 @@ void formatStringNumber(char* numberToFormat) {
 
 // Create the scrolling message
 void createStockDataMessage(JsonDocument doc) {
-	const byte MAX_NUMBER_SIZE = 50; // Max length for the numbers
+	Serial.println("Creating message...");
+	const byte MAX_NUMBER_SIZE = 30; // Max length for the numbers
 	char temp[MAX_NUMBER_SIZE]; // Temporary buffer 1
 	char temp2[MAX_NUMBER_SIZE]; // Temporary buffer 2
 
 	// Price
-	stringCopy(temp, doc[0]["price"], MAX_NUMBER_SIZE);
-	stringCopy(temp2, doc[0]["changesPercentage"], MAX_NUMBER_SIZE);
+	Serial.println("Creating price message...");
+	stringCopy(temp, doc[0]["price"].as<String>().c_str(), MAX_NUMBER_SIZE);
+	stringCopy(temp2, doc[0]["changesPercentage"].as<String>().c_str(), MAX_NUMBER_SIZE);
 	// formatStringNumber(temp); // Format number
 	// formatStringNumber(temp2); // Format number
 	snprintf(stripMessagePrice, BUF_SIZE, " BTC: $ %s (%s%%)", temp, temp2);
 
 	// Daily Change
-	stringCopy(temp, doc[0]["change"], MAX_NUMBER_SIZE);
+	Serial.println("Creating daily change message...");
+	stringCopy(temp, doc[0]["change"].as<String>().c_str(), MAX_NUMBER_SIZE);
 	// formatStringNumber(temp); // Format number
 	snprintf(stripMessageDailyChange, BUF_SIZE, "Daily Change: $ %s", temp);
 
 	// Year High/Low
-	stringCopy(temp, doc[0]["yearHigh"], MAX_NUMBER_SIZE);
-	stringCopy(temp2, doc[0]["yearLow"], MAX_NUMBER_SIZE);
+	Serial.println("Creating year high/low message...");
+	stringCopy(temp, doc[0]["yearHigh"].as<String>().c_str(), MAX_NUMBER_SIZE);
+	stringCopy(temp2, doc[0]["yearLow"].as<String>().c_str(), MAX_NUMBER_SIZE);
 	// formatStringNumber(temp); // Format number
 	// formatStringNumber(temp2); // Format number
 	snprintf(stripMessageHighLow, BUF_SIZE, "Year High: $ %s  -  Year Low: $ %s", temp, temp2);
 
 	// Open
-	stringCopy(temp, doc[0]["open"], MAX_NUMBER_SIZE);
+	Serial.println("Creating open message...");
+	stringCopy(temp, doc[0]["open"].as<String>().c_str(), MAX_NUMBER_SIZE);
 	// formatStringNumber(temp); // Format number
 	snprintf(stripMessageOpen, BUF_SIZE, "Open: $ %s", temp);
 }
 
 // Getting Bitcoin data
-void getStockDataAPI() {
+bool getStockDataAPI() {
 	const char* host = "financialmodelingprep.com";
 	char url[100]; // The full URL
 	sprintf(url, "https://%s/api/v3/quote/BTCUSD?apikey=%s", host, apiKey); // Create the URL
@@ -189,7 +201,7 @@ void getStockDataAPI() {
 			if (error) { // Error while parsing the JSON
 				Serial.printf("Error while parsing the JSON: %s\n", error.c_str());
 				http.end();
-				return;
+				return false;
 			}
 
 			createStockDataMessage(doc); // Create the scrolling message
@@ -202,14 +214,15 @@ void getStockDataAPI() {
 			*/
 
 			http.end(); // Close connection
+			return true;
 		} else {
 			Serial.printf("HTTP call error: %d\n", http.GET());
 			http.end();
-			return;
+			return false;
 		}
 	} else {
 		Serial.println("Error while connecting to the host.");
-		return;
+		return false;
 	}
 }
 
@@ -360,53 +373,65 @@ void manageLedMatrix() {
 		if (WiFi.status() != WL_CONNECTED) {
 			const char errorMessage[] = "Not connected to Wi-Fi. Use the 'Bitcoin-Ticker' access point to enter the Wi-Fi credentials.";
 			Serial.println(errorMessage);
-			stringCopy(newMessage, errorMessage, sizeof(errorMessage)); // Copy the error message
-			P.displayText(newMessage, scrollAlign, scrollDelay, scrollPause, scrollEffect, scrollEffect); // Print the error message on the matrix
-			newMessageAvailable = true;
+			printOnLedMatrix(errorMessage, sizeof(errorMessage)); // Print the message on the matrix
+			// stringCopy(newMessage, errorMessage, sizeof(errorMessage)); // Copy the error message
+			// P.displayText(newMessage, scrollAlign, scrollDelay, scrollPause, scrollEffect, scrollEffect); // Print the error message on the matrix
+			// newMessageAvailable = true;
 			return; // If not connected exit the function
 		}
 
-        // Call every 6 minutes (To limit API usage)
+        // Call API every 6 minutes (To limit usage)
         currentMillis = millis();
         if (currentMillis - timestampStockData > 360000 || timestampStockData == 0) {
-            timestampStockData = currentMillis; // Save timestamp
 			Serial.println("Calling the API");
-			getStockDataAPI(); // Getting the data
+			if (!getStockDataAPI()) { // Getting the data
+				const char errorMessageServer[] = "Error while calling the API. Retrying...";
+				printOnLedMatrix(errorMessageServer, sizeof(errorMessageServer)); // Print the message on the matrix
+				// stringCopy(newMessage, errorMessageServer, sizeof(errorMessageServer)); // Copy the error message
+				// P.displayText(newMessage, scrollAlign, scrollDelay, scrollPause, scrollEffect, scrollEffect); // Print the error message on the matrix
+				// newMessageAvailable = true;
+				return; // If error exit the function
+			}
 			Serial.println("API called");
+			timestampStockData = currentMillis; // Save timestamp
         }
 
         // Print messagges
         switch (switchText) {
 			case PRINT_PRICE:
 				Serial.println("Print: PRICE");
-				stringCopy(newMessage, stripMessagePrice, sizeof(stripMessagePrice)); // Copy the message
-				P.displayText(newMessage, scrollAlign, scrollDelay, 30000, scrollEffect, scrollEffect); // Still for 30 seconds
+				printOnLedMatrix(stripMessagePrice, BUF_SIZE, 30000); // Print the message on the matrix
+				// stringCopy(newMessage, stripMessagePrice, BUF_SIZE); // Copy the message
+				// P.displayText(newMessage, scrollAlign, scrollDelay, 30000, scrollEffect, scrollEffect); // Still for 30 seconds
 				switchText = PRINT_CHANGE;
 				break;
 
 			case PRINT_CHANGE:
 				Serial.println("Print: CHANGE");
-				stringCopy(newMessage, stripMessageDailyChange, sizeof(stripMessageDailyChange)); // Copy the message
-				P.displayText(newMessage, scrollAlign, scrollDelay, scrollPause, scrollEffect, scrollEffect);
+				printOnLedMatrix(stripMessageDailyChange, BUF_SIZE); // Print the message on the matrix
+				// stringCopy(newMessage, stripMessageDailyChange, BUF_SIZE); // Copy the message
+				// P.displayText(newMessage, scrollAlign, scrollDelay, scrollPause, scrollEffect, scrollEffect);
 				switchText = PRINT_HIGH_LOW;
 				break;
 
 			case PRINT_HIGH_LOW:
 				Serial.println("Print: HIGHLOW");
-				stringCopy(newMessage, stripMessageHighLow, sizeof(stripMessageHighLow)); // Copy the message
-				P.displayText(newMessage, scrollAlign, scrollDelay, scrollPause, scrollEffect, scrollEffect);
+				printOnLedMatrix(stripMessageHighLow, BUF_SIZE); // Print the message on the matrix
+				// stringCopy(newMessage, stripMessageHighLow, BUF_SIZE); // Copy the message
+				// P.displayText(newMessage, scrollAlign, scrollDelay, scrollPause, scrollEffect, scrollEffect);
 				switchText = PRINT_OPEN;
 				break;
 
 			case PRINT_OPEN:
 				Serial.println("Print: OPEN");
-				stringCopy(newMessage, stripMessageOpen, sizeof(stripMessageOpen)); // Copy the message
-				P.displayText(newMessage, scrollAlign, scrollDelay, scrollPause, scrollEffect, scrollEffect);
+				printOnLedMatrix(stripMessageOpen, BUF_SIZE); // Print the message on the matrix
+				// stringCopy(newMessage, stripMessageOpen, BUF_SIZE); // Copy the message
+				// P.displayText(newMessage, scrollAlign, scrollDelay, scrollPause, scrollEffect, scrollEffect);
 				switchText = PRINT_PRICE;
 				break;
         }
 
-        newMessageAvailable = true;
+        // newMessageAvailable = true;
     }
 }
 
