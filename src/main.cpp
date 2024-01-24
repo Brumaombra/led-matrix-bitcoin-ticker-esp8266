@@ -12,8 +12,8 @@ AsyncWebServer server(80); // Web server
 WiFiClientSecure client; // Client object
 HTTPClient http; // HTTP object
 const char *accessPointSSID = "Bitcoin-Ticker"; // Access point SSID
-String wiFiSSID = ""; // Network SSID
-String wiFiPassword = ""; // Network password
+char wiFiSSID[35] = ""; // Network SSID
+char wiFiPassword[70] = ""; // Network password
 bool accessPointEnabled = false; // If access point enabled
 bool disableAccessPoint = false; // If I need to disable the access point
 enum connectionStatus { WIFI_TRY = 2, WIFI_OK = 1, WIFI_KO = 0 }; // Connection status
@@ -21,14 +21,11 @@ connectionStatus wiFiConnectionStatus = WIFI_KO; // Connection status
 unsigned long currentMillis; // Current time
 unsigned long timestampStockData = 0; // Timestamp stock data
 unsigned long timestampWiFiConnection = 0; // Timestamp WiFi connection
-String stripMessagePrice; // Price
-String dailyChange; // Change
-String stripMessageHighLow; // Year High/Low
-String stripMessageOpen; // Open
 enum formatNum { FORMAT_US = 1, FORMAT_EU = 2 }; // Numeric formatting type
 formatNum formatType = FORMAT_US; // Current numeric formatting type
-int switchText = 0; // Variable for the switch
-String apiKey = ""; // Your API key for financialmodelingprep.com <- TODO - Change with your data
+enum printType { PRINT_PRICE = 0, PRINT_CHANGE = 1, PRINT_HIGH_LOW = 2, PRINT_OPEN = 3 }; // Print type
+printType switchText = PRINT_PRICE; // Variable for the switch
+char apiKey[35] = ""; // Your API key for financialmodelingprep.com <- TODO - Change with your data
 
 #define PRINT(s, x)
 #define PRINTS(x)
@@ -51,7 +48,17 @@ uint16_t scrollPause = 0; // Pause at the end of scrolling
 #define BUF_SIZE 250 // Buffer length
 char curMessage[BUF_SIZE]; // Current message
 char newMessage[BUF_SIZE]; // New message
+char stripMessagePrice[BUF_SIZE]; // Price
+char stripMessageDailyChange[BUF_SIZE]; // Change
+char stripMessageHighLow[BUF_SIZE]; // Year High/Low
+char stripMessageOpen[BUF_SIZE]; // Open
 bool newMessageAvailable = true; // New available message
+
+// Custom string copy function
+void stringCopy(char* destination, const char* text, int length) {
+    strncpy(destination, text, length - 1); // Copy the string
+    destination[length - 1] = '\0'; // Add the terminating character
+}
 
 // Replace dots and commas
 String replaceDotsAndCommas(String input) {
@@ -65,7 +72,7 @@ String replaceDotsAndCommas(String input) {
   	return input;
 }
 
-// Formatting number
+/* Formatting number
 String formatStringNumber(String numberToFormat) {
     byte pointIndex = numberToFormat.indexOf("."); // Add or remove decimals if needed
     if (pointIndex < 0) { // No decimals => 2000
@@ -86,24 +93,93 @@ String formatStringNumber(String numberToFormat) {
     }
 
 	// If setted for EU, replace points and commas
-	if(formatType == FORMAT_EU)
+	if (formatType == FORMAT_EU)
 		numberToFormat = replaceDotsAndCommas(numberToFormat);
     return numberToFormat;
 }
+*/
 
-/* Formatting percentage
-String formatStringPercentage(String percentageToFormat) {
-    if (percentageToFormat.indexOf(".") < 0) // Exit if not necessary
-        return percentageToFormat + ",00";
-    percentageToFormat.replace(".", ","); // Substitute points with commas
-    percentageToFormat = percentageToFormat.substring(0, percentageToFormat.indexOf(",") + 3);
-    return percentageToFormat;
-} */
+// Formatting number
+void formatStringNumber(char* numberToFormat) {
+	const int MAX_STRING_SIZE = 50;
+    byte length = strlen(numberToFormat);
+    char temp[MAX_STRING_SIZE];
+    memset(temp, 0, MAX_STRING_SIZE);
+
+    // Add or remove decimals as needed
+    char* pointIndex = strchr(numberToFormat, '.'); // The position of "."
+    if (!pointIndex) { // No decimals => 2000
+        snprintf(temp, MAX_STRING_SIZE, "%s.00", numberToFormat); // Add decimals
+    } else {
+        byte decimalCount = length - (pointIndex - numberToFormat + 1); // Number of decimals
+        if (decimalCount > 2) { // Too many decimals => 2000.85648
+			// stringCopy(temp, numberToFormat, pointIndex - numberToFormat + 3);
+            strncpy(temp, numberToFormat, pointIndex - numberToFormat + 3);
+            temp[pointIndex - numberToFormat + 3] = '\0';
+        } else if (decimalCount < 2) { // Too few decimals => 2000.5
+            snprintf(temp, MAX_STRING_SIZE, "%s0", numberToFormat);
+        } else { // Unsupported format
+            // strncpy(temp, numberToFormat, MAX_STRING_SIZE);
+			stringCopy(temp, numberToFormat, MAX_STRING_SIZE);
+        }
+    }
+
+    // Add thousand separator
+    int currLength = 6;
+    int tempLength = strlen(temp);
+    while (tempLength > currLength) {
+        for (int i = tempLength; i >= tempLength - currLength; --i)
+            temp[i + 1] = temp[i];
+        temp[tempLength - currLength] = ',';
+        currLength += 4;
+        tempLength = strlen(temp);
+    }
+
+    /* Replace dots and commas if set for EU
+    if (formatType == FORMAT_EU)
+        replaceDotsAndCommas(temp);
+	*/
+
+    // Copy the final result into numberToFormat
+	stringCopy(numberToFormat, temp, MAX_STRING_SIZE);
+}
+
+// Create the scrolling message
+void createStockDataMessage(JsonDocument doc) {
+	const byte MAX_NUMBER_SIZE = 50; // Max length for the numbers
+	char temp[MAX_NUMBER_SIZE]; // Temporary buffer 1
+	char temp2[MAX_NUMBER_SIZE]; // Temporary buffer 2
+
+	// Price
+	stringCopy(temp, doc[0]["price"], MAX_NUMBER_SIZE);
+	stringCopy(temp2, doc[0]["changesPercentage"], MAX_NUMBER_SIZE);
+	// formatStringNumber(temp); // Format number
+	// formatStringNumber(temp2); // Format number
+	snprintf(stripMessagePrice, BUF_SIZE, " BTC: $ %s (%s%%)", temp, temp2);
+
+	// Daily Change
+	stringCopy(temp, doc[0]["change"], MAX_NUMBER_SIZE);
+	// formatStringNumber(temp); // Format number
+	snprintf(stripMessageDailyChange, BUF_SIZE, "Daily Change: $ %s", temp);
+
+	// Year High/Low
+	stringCopy(temp, doc[0]["yearHigh"], MAX_NUMBER_SIZE);
+	stringCopy(temp2, doc[0]["yearLow"], MAX_NUMBER_SIZE);
+	// formatStringNumber(temp); // Format number
+	// formatStringNumber(temp2); // Format number
+	snprintf(stripMessageHighLow, BUF_SIZE, "Year High: $ %s  -  Year Low: $ %s", temp, temp2);
+
+	// Open
+	stringCopy(temp, doc[0]["open"], MAX_NUMBER_SIZE);
+	// formatStringNumber(temp); // Format number
+	snprintf(stripMessageOpen, BUF_SIZE, "Open: $ %s", temp);
+}
 
 // Getting Bitcoin data
 void getStockDataAPI() {
-	String host = "financialmodelingprep.com";
-	String url = "https://" + host + "/api/v3/quote/BTCUSD?apikey=" + apiKey;
+	const char* host = "financialmodelingprep.com";
+	char url[100]; // The full URL
+	sprintf(url, "https://%s/api/v3/quote/BTCUSD?apikey=%s", host, apiKey); // Create the URL
 	if (client.connect(host, 443)) { // Connecting to the server
 		http.begin(client, url); // HTTP call
 		if (http.GET() == HTTP_CODE_OK) {
@@ -116,11 +192,15 @@ void getStockDataAPI() {
 				return;
 			}
 
-			// Create the scrolling message
-			stripMessagePrice = "BTC: " + formatStringNumber(doc[0]["price"].as<String>()) + " $ (" + formatStringNumber(doc[0]["changesPercentage"].as<String>()) + "%)"; // Price
-			dailyChange = "Daily Change: " + formatStringNumber(doc[0]["change"].as<String>()) + " $"; // Daily Change
+			createStockDataMessage(doc); // Create the scrolling message
+
+			/* Create the scrolling message
+			stripMessagePrice = " BTC: " + formatStringNumber(doc[0]["price"].as<String>()) + " $ (" + formatStringNumber(doc[0]["changesPercentage"].as<String>()) + "%)"; // Price
+			stripMessageDailyChange = "Daily Change: " + formatStringNumber(doc[0]["change"].as<String>()) + " $"; // Daily Change
 			stripMessageHighLow = "Year High: " + formatStringNumber(doc[0]["yearHigh"].as<String>()) + " $  -  Year Low: " + formatStringNumber(doc[0]["yearLow"].as<String>()) + " $"; // Year High/Low
 			stripMessageOpen = "Open: " + formatStringNumber(doc[0]["open"].as<String>()) + " $"; // Open
+			*/
+
 			http.end(); // Close connection
 		} else {
 			Serial.printf("HTTP call error: %d\n", http.GET());
@@ -128,21 +208,21 @@ void getStockDataAPI() {
 			return;
 		}
 	} else {
-		Serial.println("Error while connecting to the host " + host);
+		Serial.println("Error while connecting to the host.");
 		return;
 	}
 }
 
 // Connecting to WiFi
 bool connectToWiFi() {
-	WiFi.begin(wiFiSSID.c_str(), wiFiPassword.c_str()); // Connecting to the WiFi
-	int maxTry = 50; // Maximum number of attempts to connect to WiFi
-	int count = 0; // Counter
+	WiFi.begin(wiFiSSID, wiFiPassword); // Connecting to the WiFi
+	byte maxTry = 50; // Maximum number of attempts to connect to WiFi
+	byte count = 0; // Counter
 	Serial.print("Connecting to WiFi");
 	while (WiFi.status() != WL_CONNECTED) {
-		if(count >= maxTry) {
-			wiFiSSID = ""; // Reset network SSID
-			wiFiPassword = ""; // Reset network password
+		if (count >= maxTry) {
+			wiFiSSID[0] = '\0'; // Reset network SSID
+			wiFiPassword[0] = '\0'; // Reset network password
 			return false; // Connection failed
 		}
 		count++;
@@ -162,26 +242,32 @@ void setupRoutes() {
 
 	// Connect to WiFi
 	server.on("/connect", HTTP_GET, [](AsyncWebServerRequest *request) {
-		wiFiSSID = request->getParam("ssid")->value();
-		wiFiPassword = request->getParam("password")->value();
-		Serial.println("SSID: " + wiFiSSID);
-		Serial.println("Password: " + wiFiPassword);
+		stringCopy(wiFiSSID, request->getParam("ssid")->value().c_str(), 35); // Save the SSID
+		stringCopy(wiFiPassword, request->getParam("password")->value().c_str(), 70); // Save the password
+		Serial.print("SSID: ");
+		Serial.println(wiFiSSID);
+		Serial.print("Password: ");
+		Serial.println(wiFiPassword);
 		wiFiConnectionStatus = WIFI_TRY; // Trying to connect
-		request->send(200, "application/json", "{\"status\":\"" + String(wiFiConnectionStatus) + "\"}"); // Response
+		char jsonResponse[20]; // JSON response
+		snprintf(jsonResponse, sizeof(jsonResponse), "{\"status\":\"%d\"}", wiFiConnectionStatus); // Create response
+		request->send(200, "application/json", jsonResponse); // Response
 	});
 
 	// Check the WiFi connection status
 	server.on("/checkConnection", HTTP_GET, [](AsyncWebServerRequest *request) {
+		char jsonResponse[20]; // JSON response
+		snprintf(jsonResponse, sizeof(jsonResponse), "{\"status\":\"%d\"}", wiFiConnectionStatus);
 		switch(wiFiConnectionStatus) {
 			case WIFI_TRY:
-				request->send(200, "application/json", "{\"status\":\"" + String(wiFiConnectionStatus) + "\"}"); // Response
+				request->send(200, "application/json", jsonResponse); // Response
 				break;
 			case WIFI_OK:
 				disableAccessPoint = true; // I need to disable the access point
-				request->send(200, "application/json", "{\"status\":\"" + String(wiFiConnectionStatus) + "\"}"); // Response
+				request->send(200, "application/json", jsonResponse); // Response
 				break;
 			case WIFI_KO:
-				request->send(400, "application/json", "{\"status\":\"" + String(wiFiConnectionStatus) + "\"}"); // Response
+				request->send(400, "application/json", jsonResponse); // Response
 				break;
 		}
 	});
@@ -196,34 +282,38 @@ void setupRoutes() {
 				network["ssid"] = WiFi.SSID(i);
 				network["signal"] = WiFi.RSSI(i);
 			}
-			String json;
-			serializeJson(doc, json);
-			request->send(200, "application/json", json);
+			size_t jsonLength = measureJson(doc) + 1; // Get the size of the JSON object
+			char json[jsonLength];
+			serializeJson(doc, json, jsonLength);
+			request->send(200, "application/json", json); // Send the JSON object
 		});
     });
 }
 
 // Setting up the access point
 bool setupAccessPoint() {
-	if(accessPointEnabled) // Check if already enabled
+	if (accessPointEnabled) // Check if already enabled
 		return true; // If enabled exit the function
 	accessPointEnabled = WiFi.softAP(accessPointSSID); // Start the access point
-	if(!accessPointEnabled) // Check if enabled
+	if (!accessPointEnabled) // Check if enabled
 		return false; // If not enabled exit the function
 	return true; // Access point enabled
 }
 
 // Manage WiFi connection
 bool manageWiFiConnection() {
-	if(wiFiConnectionStatus == WIFI_TRY) { // Check if already trying to connect
-		Serial.println("wiFiConnectionStatus: " + String(wiFiConnectionStatus));
-		if(connectToWiFi()) { // Connecting to WiFi
+	if (wiFiConnectionStatus == WIFI_TRY) { // Check if already trying to connect
+		Serial.print("wiFiConnectionStatus: ");
+		Serial.println(wiFiConnectionStatus);
+		if (connectToWiFi()) { // Connecting to WiFi
 			wiFiConnectionStatus = WIFI_OK; // Update connection status
-			Serial.println("wiFiConnectionStatus: " + String(wiFiConnectionStatus));
+			Serial.print("wiFiConnectionStatus: ");
+			Serial.println(wiFiConnectionStatus);
 			return true; // Connection success
 		} else {
 			wiFiConnectionStatus = WIFI_KO; // Update connection status
-			Serial.println("wiFiConnectionStatus: " + String(wiFiConnectionStatus));
+			Serial.print("wiFiConnectionStatus: ");
+			Serial.println(wiFiConnectionStatus);
 			return false; // Connection failed
 		}
 	}
@@ -231,9 +321,9 @@ bool manageWiFiConnection() {
 	// Every 2 seconds
 	if (millis() - timestampWiFiConnection > 2000) {
 		timestampWiFiConnection = millis(); // Save timestamp
-		if(disableAccessPoint && accessPointEnabled) { // Check if I need to disable the access point
+		if (disableAccessPoint && accessPointEnabled) { // Check if I need to disable the access point
 			accessPointEnabled = !WiFi.softAPdisconnect(); // Disable access point
-			if(!accessPointEnabled) // Check if disabled
+			if (!accessPointEnabled) // Check if disabled
 				disableAccessPoint = false; // Mark as disabled
 		}
 
@@ -242,8 +332,8 @@ bool manageWiFiConnection() {
 			return true; // If connected exit the function
 
 		// Check if credentials are already present
-		if(wiFiSSID != "" && wiFiPassword != "") {
-			if(connectToWiFi()) // Connecting to WiFi
+		if (wiFiSSID[0] != '\0' && wiFiPassword[0] != '\0') {
+			if (connectToWiFi()) // Connecting to WiFi
 				return true; // Connection success
 			else
 				setupAccessPoint(); // Setup access point
@@ -267,10 +357,10 @@ void manageLedMatrix() {
         P.displayReset();
 		
 		// Check if connected to WiFi
-		if(WiFi.status() != WL_CONNECTED) {
-			String errorMessage = "Not connected to Wi-Fi. Use the 'Bitcoin-Ticker' access point to enter the Wi-Fi credentials.";
+		if (WiFi.status() != WL_CONNECTED) {
+			const char errorMessage[] = "Not connected to Wi-Fi. Use the 'Bitcoin-Ticker' access point to enter the Wi-Fi credentials.";
 			Serial.println(errorMessage);
-			errorMessage.toCharArray(newMessage, errorMessage.length() + 1); // Copy the error message and convert it to char[]
+			stringCopy(newMessage, errorMessage, sizeof(errorMessage)); // Copy the error message
 			P.displayText(newMessage, scrollAlign, scrollDelay, scrollPause, scrollEffect, scrollEffect); // Print the error message on the matrix
 			newMessageAvailable = true;
 			return; // If not connected exit the function
@@ -287,32 +377,32 @@ void manageLedMatrix() {
 
         // Print messagges
         switch (switchText) {
-			case 0:
+			case PRINT_PRICE:
 				Serial.println("Print: PRICE");
-				stripMessagePrice.toCharArray(newMessage, stripMessagePrice.length() + 1);
+				stringCopy(newMessage, stripMessagePrice, sizeof(stripMessagePrice)); // Copy the message
 				P.displayText(newMessage, scrollAlign, scrollDelay, 30000, scrollEffect, scrollEffect); // Still for 30 seconds
-				switchText = 1;
+				switchText = PRINT_CHANGE;
 				break;
 
-			case 1:
+			case PRINT_CHANGE:
 				Serial.println("Print: CHANGE");
-				dailyChange.toCharArray(newMessage, dailyChange.length() + 1);
+				stringCopy(newMessage, stripMessageDailyChange, sizeof(stripMessageDailyChange)); // Copy the message
 				P.displayText(newMessage, scrollAlign, scrollDelay, scrollPause, scrollEffect, scrollEffect);
-				switchText = 2;
+				switchText = PRINT_HIGH_LOW;
 				break;
 
-			case 2:
+			case PRINT_HIGH_LOW:
 				Serial.println("Print: HIGHLOW");
-				stripMessageHighLow.toCharArray(newMessage, stripMessageHighLow.length() + 1);
+				stringCopy(newMessage, stripMessageHighLow, sizeof(stripMessageHighLow)); // Copy the message
 				P.displayText(newMessage, scrollAlign, scrollDelay, scrollPause, scrollEffect, scrollEffect);
-				switchText = 3;
+				switchText = PRINT_OPEN;
 				break;
 
-			case 3:
+			case PRINT_OPEN:
 				Serial.println("Print: OPEN");
-				stripMessageOpen.toCharArray(newMessage, stripMessageOpen.length() + 1);
+				stringCopy(newMessage, stripMessageOpen, sizeof(stripMessageOpen)); // Copy the message
 				P.displayText(newMessage, scrollAlign, scrollDelay, scrollPause, scrollEffect, scrollEffect);
-				switchText = 0;
+				switchText = PRINT_PRICE;
 				break;
         }
 
