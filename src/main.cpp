@@ -4,14 +4,17 @@
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
 #include <ArduinoJson.h>
-#include <WiFiClientSecure.h>
+// #include <WiFiClientSecure.h>
+// #include <WiFiClient.h>
 #include <LittleFS.h>
 #include <ESPAsyncWebServer.h>
+#include <currency.h>
 
 AsyncWebServer server(80); // Web server
-WiFiClientSecure client; // Client object
+// WiFiClientSecure client; // Client object
+WiFiClient client; // Client object
 HTTPClient http; // HTTP object
-const char *accessPointSSID = "Bitcoin-Ticker"; // Access point SSID
+const char accessPointSSID[] = "Bitcoin-Ticker"; // Access point SSID
 char wiFiSSID[35] = ""; // Network SSID
 char wiFiPassword[70] = ""; // Network password
 bool accessPointEnabled = false; // If access point enabled
@@ -67,7 +70,7 @@ void printOnLedMatrix(const char* message, const byte stringLength, uint16_t mes
 	newMessageAvailable = true; // New message available
 }
 
-// Replace dots and commas
+/* Replace dots and commas
 String replaceDotsAndCommas(String input) {
   	for (unsigned int i = 0; i < input.length(); i++) {
 		if (input.charAt(i) == '.') {
@@ -78,6 +81,31 @@ String replaceDotsAndCommas(String input) {
 	}
   	return input;
 }
+*/
+
+/*
+void formatStringNumber2(char* numberToFormat) {
+	long winds=17040;
+	char buf[21];
+	if (winds>=1000)
+		snprintf(buf,sizeof(buf),"%ld,%03ld",winds/1000,winds%1000);
+	else
+		snprintf(buf,sizeof(buf),"%ld",winds);
+	Serial.println(buf);
+}
+
+void *formatStringNumber3(unsigned long val, char *s) {
+    char *p = s + 13;
+    *p = '\0';
+    do {
+        if ((p - s) % 4 == 2)
+            *--p = ',';
+        *--p = '0' + val % 10;
+        val /= 10;
+    } while (val);
+    return p;
+}
+*/
 
 /* Formatting number
 String formatStringNumber(String numberToFormat) {
@@ -106,7 +134,7 @@ String formatStringNumber(String numberToFormat) {
 }
 */
 
-// Formatting number
+/* Formatting number
 void formatStringNumber(char* numberToFormat) {
 	const int MAX_STRING_SIZE = 50;
     byte length = strlen(numberToFormat);
@@ -142,54 +170,65 @@ void formatStringNumber(char* numberToFormat) {
         tempLength = strlen(temp);
     }
 
-    /* Replace dots and commas if set for EU
+    // Replace dots and commas if set for EU
     if (formatType == FORMAT_EU)
         replaceDotsAndCommas(temp);
-	*/
 
     // Copy the final result into numberToFormat
 	stringCopy(numberToFormat, temp, MAX_STRING_SIZE);
+}
+*/
+
+// Format currency
+void formatCurrency(const double value, char* string, const byte length) {
+	if (formatType == FORMAT_US)
+		stringCopy(string, currency(value, 2, '.', ',', '$'), length);
+	else
+		stringCopy(string, currency(value, 2, ',', '.', '$'), length);
 }
 
 // Create the scrolling message
 void createStockDataMessage(JsonDocument doc) {
 	Serial.println("Creating message...");
 	const byte MAX_NUMBER_SIZE = 30; // Max length for the numbers
-	char temp[MAX_NUMBER_SIZE]; // Temporary buffer 1
-	char temp2[MAX_NUMBER_SIZE]; // Temporary buffer 2
+	char tempString[MAX_NUMBER_SIZE]; // Temporary string 1
+	char tempString2[MAX_NUMBER_SIZE]; // Temporary string 2
+	double tempVal; // Temporary variable 1
+	double tempVal2; // Temporary variable 2
 
 	// Price
 	Serial.println("Creating price message...");
-	stringCopy(temp, doc[0]["price"].as<String>().c_str(), MAX_NUMBER_SIZE);
-	stringCopy(temp2, doc[0]["changesPercentage"].as<String>().c_str(), MAX_NUMBER_SIZE);
-	// formatStringNumber(temp); // Format number
-	// formatStringNumber(temp2); // Format number
-	snprintf(stripMessagePrice, BUF_SIZE, " BTC: $ %s (%s%%)", temp, temp2);
+	tempVal = doc[0]["price"].as<double>();
+	tempVal2 = doc[0]["changesPercentage"].as<double>();
+	formatCurrency(tempVal, tempString, MAX_NUMBER_SIZE); // Format number
+	formatCurrency(tempVal2, tempString2, MAX_NUMBER_SIZE); // Format number
+	snprintf(stripMessagePrice, BUF_SIZE, " BTC: $ %s (%s%%)", tempString, tempString2);
 
 	// Daily Change
 	Serial.println("Creating daily change message...");
-	stringCopy(temp, doc[0]["change"].as<String>().c_str(), MAX_NUMBER_SIZE);
-	// formatStringNumber(temp); // Format number
-	snprintf(stripMessageDailyChange, BUF_SIZE, "Daily Change: $ %s", temp);
+	tempVal = doc[0]["change"].as<double>();
+	formatCurrency(tempVal, tempString, MAX_NUMBER_SIZE); // Format number
+	snprintf(stripMessageDailyChange, BUF_SIZE, "Daily Change: $ %s", tempString);
 
 	// Year High/Low
 	Serial.println("Creating year high/low message...");
-	stringCopy(temp, doc[0]["yearHigh"].as<String>().c_str(), MAX_NUMBER_SIZE);
-	stringCopy(temp2, doc[0]["yearLow"].as<String>().c_str(), MAX_NUMBER_SIZE);
-	// formatStringNumber(temp); // Format number
-	// formatStringNumber(temp2); // Format number
-	snprintf(stripMessageHighLow, BUF_SIZE, "Year High: $ %s  -  Year Low: $ %s", temp, temp2);
+	tempVal = doc[0]["yearHigh"].as<double>();
+	tempVal2 = doc[0]["yearLow"].as<double>();
+	formatCurrency(tempVal, tempString, MAX_NUMBER_SIZE); // Format number
+	formatCurrency(tempVal2, tempString2, MAX_NUMBER_SIZE); // Format number
+	snprintf(stripMessageHighLow, BUF_SIZE, "Year High: $ %s  -  Year Low: $ %s", tempString, tempString2);
 
 	// Open
 	Serial.println("Creating open message...");
-	stringCopy(temp, doc[0]["open"].as<String>().c_str(), MAX_NUMBER_SIZE);
-	// formatStringNumber(temp); // Format number
-	snprintf(stripMessageOpen, BUF_SIZE, "Open: $ %s", temp);
+	tempVal = doc[0]["open"].as<double>();
+	formatCurrency(tempVal, tempString, MAX_NUMBER_SIZE); // Format number
+	snprintf(stripMessageOpen, BUF_SIZE, "Open: $ %s", tempString);
 }
 
 // Getting Bitcoin data
 bool getStockDataAPI() {
-	const char* host = "financialmodelingprep.com";
+	/*
+	const char host[] = "financialmodelingprep.com";
 	char url[100]; // The full URL
 	sprintf(url, "https://%s/api/v3/quote/BTCUSD?apikey=%s", host, apiKey); // Create the URL
 	if (client.connect(host, 443)) { // Connecting to the server
@@ -203,16 +242,7 @@ bool getStockDataAPI() {
 				http.end();
 				return false;
 			}
-
 			createStockDataMessage(doc); // Create the scrolling message
-
-			/* Create the scrolling message
-			stripMessagePrice = " BTC: " + formatStringNumber(doc[0]["price"].as<String>()) + " $ (" + formatStringNumber(doc[0]["changesPercentage"].as<String>()) + "%)"; // Price
-			stripMessageDailyChange = "Daily Change: " + formatStringNumber(doc[0]["change"].as<String>()) + " $"; // Daily Change
-			stripMessageHighLow = "Year High: " + formatStringNumber(doc[0]["yearHigh"].as<String>()) + " $  -  Year Low: " + formatStringNumber(doc[0]["yearLow"].as<String>()) + " $"; // Year High/Low
-			stripMessageOpen = "Open: " + formatStringNumber(doc[0]["open"].as<String>()) + " $"; // Open
-			*/
-
 			http.end(); // Close connection
 			return true;
 		} else {
@@ -224,6 +254,29 @@ bool getStockDataAPI() {
 		Serial.println("Error while connecting to the host.");
 		return false;
 	}
+	*/
+
+	// const char* host = "financialmodelingprep.com";
+    char url[100]; // URL modificato per utilizzare HTTP
+    sprintf(url, "http://financialmodelingprep.com/api/v3/quote/BTCUSD?apikey=%s", apiKey);
+    http.begin(client, url); // Inizia una chiamata HTTP all'URL specificato
+    if (http.GET() == HTTP_CODE_OK) {
+        Serial.println("Response body: " + http.getString());
+        JsonDocument doc; // Create the JSON object
+		DeserializationError error = deserializeJson(doc, http.getString()); // Deserialize the JSON object
+		if (error) { // Error while parsing the JSON
+			Serial.printf("Error while parsing the JSON: %s\n", error.c_str());
+			http.end();
+			return false;
+		}
+		createStockDataMessage(doc); // Create the scrolling message
+		http.end(); // Close connection
+		return true;
+    } else {
+        Serial.printf("HTTP call error: %d\n", http.GET());
+        http.end();
+        return false;
+    }
 }
 
 // Connecting to WiFi
@@ -358,86 +411,80 @@ bool manageWiFiConnection() {
 	return true; // Connection success
 }
 
+// Check if connected to WiFi
+bool checkWifiConnection() {
+	if (WiFi.status() != WL_CONNECTED) {
+		const char errorMessage[] = "Not connected to Wi-Fi. Use the 'Bitcoin-Ticker' access point to enter the Wi-Fi credentials.";
+		Serial.println(errorMessage);
+		printOnLedMatrix(errorMessage, sizeof(errorMessage)); // Print the message on the matrix
+		return false; // Not connected
+	}
+	return true; // Connected
+}
+
+// Call the API to get the data
+bool callAPI() {
+	currentMillis = millis();
+	if (currentMillis - timestampStockData > 360000 || timestampStockData == 0) { // Call the API every 6 minutes (To limit usage)
+		Serial.println("Calling the API");
+		if (!getStockDataAPI()) { // Getting the data
+			const char errorMessageServer[] = "Error while calling the API. Retrying...";
+			printOnLedMatrix(errorMessageServer, sizeof(errorMessageServer)); // Print the message on the matrix
+			return false; // If error, return false
+		}
+		Serial.println("API called");
+		timestampStockData = currentMillis; // Save timestamp
+	}
+	return true; // If no error, return true
+}
+
 // Manage the LED matrix
 void manageLedMatrix() {
     if (P.displayAnimate()) { // Is currently scrolling
         Serial.println("End of cycle");
         if (newMessageAvailable) { // Is a new message available?
-            strcpy(curMessage, newMessage); // Store the new message
+            stringCopy(curMessage, newMessage, BUF_SIZE); // Store the new message
             newMessageAvailable = false; // Exit the IF statement
         }
 
-        P.displayReset();
-		
-		// Check if connected to WiFi
-		if (WiFi.status() != WL_CONNECTED) {
-			const char errorMessage[] = "Not connected to Wi-Fi. Use the 'Bitcoin-Ticker' access point to enter the Wi-Fi credentials.";
-			Serial.println(errorMessage);
-			printOnLedMatrix(errorMessage, sizeof(errorMessage)); // Print the message on the matrix
-			// stringCopy(newMessage, errorMessage, sizeof(errorMessage)); // Copy the error message
-			// P.displayText(newMessage, scrollAlign, scrollDelay, scrollPause, scrollEffect, scrollEffect); // Print the error message on the matrix
-			// newMessageAvailable = true;
-			return; // If not connected exit the function
-		}
-
-        // Call API every 6 minutes (To limit usage)
-        currentMillis = millis();
-        if (currentMillis - timestampStockData > 360000 || timestampStockData == 0) {
-			Serial.println("Calling the API");
-			if (!getStockDataAPI()) { // Getting the data
-				const char errorMessageServer[] = "Error while calling the API. Retrying...";
-				printOnLedMatrix(errorMessageServer, sizeof(errorMessageServer)); // Print the message on the matrix
-				// stringCopy(newMessage, errorMessageServer, sizeof(errorMessageServer)); // Copy the error message
-				// P.displayText(newMessage, scrollAlign, scrollDelay, scrollPause, scrollEffect, scrollEffect); // Print the error message on the matrix
-				// newMessageAvailable = true;
-				return; // If error exit the function
-			}
-			Serial.println("API called");
-			timestampStockData = currentMillis; // Save timestamp
-        }
+        P.displayReset(); // Reset the matrix
+		if (checkWifiConnection()) // Check if connected to WiFi
+			return; // // If not connected, exit the function
+		if (callAPI()) // Call the API
+			return; // If error, exit the function
 
         // Print messagges
         switch (switchText) {
 			case PRINT_PRICE:
 				Serial.println("Print: PRICE");
 				printOnLedMatrix(stripMessagePrice, BUF_SIZE, 30000); // Print the message on the matrix
-				// stringCopy(newMessage, stripMessagePrice, BUF_SIZE); // Copy the message
-				// P.displayText(newMessage, scrollAlign, scrollDelay, 30000, scrollEffect, scrollEffect); // Still for 30 seconds
 				switchText = PRINT_CHANGE;
 				break;
 
 			case PRINT_CHANGE:
 				Serial.println("Print: CHANGE");
 				printOnLedMatrix(stripMessageDailyChange, BUF_SIZE); // Print the message on the matrix
-				// stringCopy(newMessage, stripMessageDailyChange, BUF_SIZE); // Copy the message
-				// P.displayText(newMessage, scrollAlign, scrollDelay, scrollPause, scrollEffect, scrollEffect);
 				switchText = PRINT_HIGH_LOW;
 				break;
 
 			case PRINT_HIGH_LOW:
 				Serial.println("Print: HIGHLOW");
 				printOnLedMatrix(stripMessageHighLow, BUF_SIZE); // Print the message on the matrix
-				// stringCopy(newMessage, stripMessageHighLow, BUF_SIZE); // Copy the message
-				// P.displayText(newMessage, scrollAlign, scrollDelay, scrollPause, scrollEffect, scrollEffect);
 				switchText = PRINT_OPEN;
 				break;
 
 			case PRINT_OPEN:
 				Serial.println("Print: OPEN");
 				printOnLedMatrix(stripMessageOpen, BUF_SIZE); // Print the message on the matrix
-				// stringCopy(newMessage, stripMessageOpen, BUF_SIZE); // Copy the message
-				// P.displayText(newMessage, scrollAlign, scrollDelay, scrollPause, scrollEffect, scrollEffect);
 				switchText = PRINT_PRICE;
 				break;
         }
-
-        // newMessageAvailable = true;
     }
 }
 
 // Setup the web client
 void setupWebClient() {
-	client.setInsecure(); // HTTPS connection
+	// client.setInsecure(); // HTTPS connection
     http.setTimeout(5000); // Set timeout
 }
 
@@ -467,6 +514,8 @@ void setupServer() {
 // Setup
 void setup() {
 	Serial.begin(9600); // Start serial
+	Serial.println( currency(10000000, 0, '.', ',', '$') );
+	Serial.println( currency(10000000, 2, '.', ',', '$') );
 	setupLittleFS(); // Setup LittleFS
 	setupServer(); // Setup server
 	manageWiFiConnection(); // Manage WiFi connection

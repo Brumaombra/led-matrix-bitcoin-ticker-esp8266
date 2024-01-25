@@ -47,7 +47,7 @@ This project turns an ESP8266 microcontroller and a MAX7219 LED matrix into a dy
 For detailed setup and customization instructions, refer to comments within the `main.cpp` file.
 
 ## Author
-Mauro Brambilla (brumaombra)
+Mauro Brambilla - brumaombra
 
 ## License
-This project is open-source and available under MIT License.
+This project is licensed under the MIT License - see the LICENSE file for details.
