@@ -1,17 +1,25 @@
 #include <MD_Parola.h>
 #include <MD_MAX72xx.h>
-// #include <SPI.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
 #include <ArduinoJson.h>
-// #include <WiFiClientSecure.h>
-// #include <WiFiClient.h>
+#include <WiFiClientSecure.h>
 #include <LittleFS.h>
 #include <ESPAsyncWebServer.h>
-#include <currency.h>
+
+#define PRINT(s, x)
+#define PRINTS(x)
+#define PRINTX(x)
+
+// Hardware configuration
+#define HARDWARE_TYPE MD_MAX72XX::FC16_HW
+#define BUF_SIZE 250 // Buffer length
+#define MAX_DEVICES 16 // Number of modules <- TODO - Change with your data
+#define CLK_PIN 14 // SCK <- TODO - Change with your data (If needed)
+#define DATA_PIN 13 // MOSI <- TODO - Change with your data (If needed)
+#define CS_PIN 15 // SS <- TODO - Change with your data (If needed)
 
 AsyncWebServer server(80); // Web server
-// WiFiClientSecure client; // Client object
 WiFiClient client; // Client object
 HTTPClient http; // HTTP object
 const char accessPointSSID[] = "Bitcoin-Ticker"; // Access point SSID
@@ -28,27 +36,14 @@ enum formatNum { FORMAT_US = 1, FORMAT_EU = 2 }; // Numeric formatting type
 formatNum formatType = FORMAT_US; // Current numeric formatting type
 enum printType { PRINT_PRICE = 0, PRINT_CHANGE = 1, PRINT_HIGH_LOW = 2, PRINT_OPEN = 3 }; // Print type
 printType switchText = PRINT_PRICE; // Variable for the switch
-char apiKey[35] = "8b5e75db3ac93df1144f0743f2b5b786"; // Your API key for financialmodelingprep.com <- TODO - Change with your data
-
-#define PRINT(s, x)
-#define PRINTS(x)
-#define PRINTX(x)
-
-// Hardware configuration (Pinout)
-#define HARDWARE_TYPE MD_MAX72XX::FC16_HW
-#define MAX_DEVICES 16 // Number of modules <- TODO - Change with your data
-#define CLK_PIN 14 // SCK <- TODO - Change with your data (If needed)
-#define DATA_PIN 13 // MOSI <- TODO - Change with your data (If needed)
-#define CS_PIN 15 // SS <- TODO - Change with your data (If needed)
-
+char apiKey[35] = ""; // Your API key for financialmodelingprep.com <- TODO - Change with your data
 MD_Parola P = MD_Parola(HARDWARE_TYPE, CS_PIN, MAX_DEVICES);
 uint8_t scrollDelay = 30; // Matrix refresh delay
 textEffect_t scrollEffect = PA_SCROLL_LEFT; // Scrolling effect
 textPosition_t scrollAlign = PA_LEFT; // Scroll direction
 uint16_t scrollPause = 0; // Pause at the end of scrolling
 
-// Global message buffers shared by Serial and Scrolling functions
-#define BUF_SIZE 250 // Buffer length
+// Global message buffers shared by serial and scrolling functions
 char curMessage[BUF_SIZE]; // Current message
 char newMessage[BUF_SIZE]; // New message
 char stripMessagePrice[BUF_SIZE]; // Price
@@ -70,121 +65,41 @@ void printOnLedMatrix(const char* message, const byte stringLength, uint16_t mes
 	newMessageAvailable = true; // New message available
 }
 
-/* Replace dots and commas
-String replaceDotsAndCommas(String input) {
-  	for (unsigned int i = 0; i < input.length(); i++) {
-		if (input.charAt(i) == '.') {
-			input.setCharAt(i, ',');
-		} else if (input.charAt(i) == ',') {
-			input.setCharAt(i, '.');
-		}
+// Format a currency
+char* addThousandsSeparators(int32_t value, int decimals, char decimalSeparator, char thousandSeparator, char symbol = ' ') {
+	static char tmp[16]; // Temporary buffer to store the formatted string
+	uint8_t index = 0; // Index for placing characters in tmp
+	int32_t v = value; // Copy of the input value
+	bool negative = v < 0; // Flag for negative numbers
+	if (negative) v = -v; // Make v positive for processing
+	int pos = -decimals; // Tracks the position relative to the decimal point
+	while ((pos < 1) || (v > 0)) { // Loop until we've processed all digits
+		if ((pos == 0) && (decimals > 0)) tmp[index++] = decimalSeparator; // Add decimal separator
+		if ((pos > 0) && (pos % 3 == 0)) tmp[index++] = thousandSeparator; // Add thousand separator
+		pos++;
+		tmp[index++] = (v % 10) + '0'; // Extract and store the last digit of v
+		v /= 10; // Remove the last digit from v
 	}
-  	return input;
+	if (negative) tmp[index++] = '-'; // Add negative sign if necessary
+	if (symbol != ' ') {
+		tmp[index++] = ' '; // Add space
+		tmp[index++] = symbol; // Add the currency symbol if there is
+	}
+	tmp[index] = '\0'; // Null-terminate the string
+	for (uint8_t i = 0, j = index - 1; i < index / 2; i++, j--) { // Reverse the string since it was built backwards
+		char c = tmp[i];
+		tmp[i] = tmp[j];
+		tmp[j] = c;
+	}
+	return tmp; // Return the pointer to the formatted string.
 }
-*/
-
-/*
-void formatStringNumber2(char* numberToFormat) {
-	long winds=17040;
-	char buf[21];
-	if (winds>=1000)
-		snprintf(buf,sizeof(buf),"%ld,%03ld",winds/1000,winds%1000);
-	else
-		snprintf(buf,sizeof(buf),"%ld",winds);
-	Serial.println(buf);
-}
-
-void *formatStringNumber3(unsigned long val, char *s) {
-    char *p = s + 13;
-    *p = '\0';
-    do {
-        if ((p - s) % 4 == 2)
-            *--p = ',';
-        *--p = '0' + val % 10;
-        val /= 10;
-    } while (val);
-    return p;
-}
-*/
-
-/* Formatting number
-String formatStringNumber(String numberToFormat) {
-    byte pointIndex = numberToFormat.indexOf("."); // Add or remove decimals if needed
-    if (pointIndex < 0) { // No decimals => 2000
-        numberToFormat += ".00";
-    } else if (numberToFormat.length() - pointIndex > 3) { // Too many decimals => 2000.85648
-        numberToFormat = numberToFormat.substring(0, numberToFormat.indexOf(".") + 3);
-    } else if (numberToFormat.length() - pointIndex < 3) { // Too few decimals => 2000.5
-        numberToFormat += "0";
-    } else { // Unsupported format
-        return numberToFormat;
-    }
-
-    // Add thousands separator
-    byte currLength = 6;
-    while (numberToFormat.length() > currLength) {
-        numberToFormat = numberToFormat.substring(0, numberToFormat.length() - currLength) + "," + numberToFormat.substring(numberToFormat.length() - currLength);
-        currLength += 4;
-    }
-
-	// If setted for EU, replace points and commas
-	if (formatType == FORMAT_EU)
-		numberToFormat = replaceDotsAndCommas(numberToFormat);
-    return numberToFormat;
-}
-*/
-
-/* Formatting number
-void formatStringNumber(char* numberToFormat) {
-	const int MAX_STRING_SIZE = 50;
-    byte length = strlen(numberToFormat);
-    char temp[MAX_STRING_SIZE];
-    memset(temp, 0, MAX_STRING_SIZE);
-
-    // Add or remove decimals as needed
-    char* pointIndex = strchr(numberToFormat, '.'); // The position of "."
-    if (!pointIndex) { // No decimals => 2000
-        snprintf(temp, MAX_STRING_SIZE, "%s.00", numberToFormat); // Add decimals
-    } else {
-        byte decimalCount = length - (pointIndex - numberToFormat + 1); // Number of decimals
-        if (decimalCount > 2) { // Too many decimals => 2000.85648
-			// stringCopy(temp, numberToFormat, pointIndex - numberToFormat + 3);
-            strncpy(temp, numberToFormat, pointIndex - numberToFormat + 3);
-            temp[pointIndex - numberToFormat + 3] = '\0';
-        } else if (decimalCount < 2) { // Too few decimals => 2000.5
-            snprintf(temp, MAX_STRING_SIZE, "%s0", numberToFormat);
-        } else { // Unsupported format
-            // strncpy(temp, numberToFormat, MAX_STRING_SIZE);
-			stringCopy(temp, numberToFormat, MAX_STRING_SIZE);
-        }
-    }
-
-    // Add thousand separator
-    int currLength = 6;
-    int tempLength = strlen(temp);
-    while (tempLength > currLength) {
-        for (int i = tempLength; i >= tempLength - currLength; --i)
-            temp[i + 1] = temp[i];
-        temp[tempLength - currLength] = ',';
-        currLength += 4;
-        tempLength = strlen(temp);
-    }
-
-    // Replace dots and commas if set for EU
-    if (formatType == FORMAT_EU)
-        replaceDotsAndCommas(temp);
-
-    // Copy the final result into numberToFormat
-	stringCopy(numberToFormat, temp, MAX_STRING_SIZE);
-}
-*/
 
 // Format currency
-void formatCurrency(const double value, char* string, const byte length) {
+void formatCurrency(double value, char* output, const byte length) {
 	if (formatType == FORMAT_US)
-		stringCopy(string, currency(value, 2, '.', ',', '$'), length);
+		stringCopy(output, addThousandsSeparators(value * 100, 2, '.', ','), length);
 	else
-		stringCopy(string, currency(value, 2, ',', '.', '$'), length);
+		stringCopy(output, addThousandsSeparators(value * 100, 2, ',', '.'), length);
 }
 
 // Create the scrolling message
@@ -197,7 +112,6 @@ void createStockDataMessage(JsonDocument doc) {
 	double tempVal2; // Temporary variable 2
 
 	// Price
-	Serial.println("Creating price message...");
 	tempVal = doc[0]["price"].as<double>();
 	tempVal2 = doc[0]["changesPercentage"].as<double>();
 	formatCurrency(tempVal, tempString, MAX_NUMBER_SIZE); // Format number
@@ -205,13 +119,11 @@ void createStockDataMessage(JsonDocument doc) {
 	snprintf(stripMessagePrice, BUF_SIZE, " BTC: $ %s (%s%%)", tempString, tempString2);
 
 	// Daily Change
-	Serial.println("Creating daily change message...");
 	tempVal = doc[0]["change"].as<double>();
 	formatCurrency(tempVal, tempString, MAX_NUMBER_SIZE); // Format number
 	snprintf(stripMessageDailyChange, BUF_SIZE, "Daily Change: $ %s", tempString);
 
 	// Year High/Low
-	Serial.println("Creating year high/low message...");
 	tempVal = doc[0]["yearHigh"].as<double>();
 	tempVal2 = doc[0]["yearLow"].as<double>();
 	formatCurrency(tempVal, tempString, MAX_NUMBER_SIZE); // Format number
@@ -219,7 +131,6 @@ void createStockDataMessage(JsonDocument doc) {
 	snprintf(stripMessageHighLow, BUF_SIZE, "Year High: $ %s  -  Year Low: $ %s", tempString, tempString2);
 
 	// Open
-	Serial.println("Creating open message...");
 	tempVal = doc[0]["open"].as<double>();
 	formatCurrency(tempVal, tempString, MAX_NUMBER_SIZE); // Format number
 	snprintf(stripMessageOpen, BUF_SIZE, "Open: $ %s", tempString);
@@ -227,36 +138,6 @@ void createStockDataMessage(JsonDocument doc) {
 
 // Getting Bitcoin data
 bool getStockDataAPI() {
-	/*
-	const char host[] = "financialmodelingprep.com";
-	char url[100]; // The full URL
-	sprintf(url, "https://%s/api/v3/quote/BTCUSD?apikey=%s", host, apiKey); // Create the URL
-	if (client.connect(host, 443)) { // Connecting to the server
-		http.begin(client, url); // HTTP call
-		if (http.GET() == HTTP_CODE_OK) {
-			Serial.println("Response body: " + http.getString());
-			JsonDocument doc; // Create the JSON object
-			DeserializationError error = deserializeJson(doc, http.getString()); // Deserialize the JSON object
-			if (error) { // Error while parsing the JSON
-				Serial.printf("Error while parsing the JSON: %s\n", error.c_str());
-				http.end();
-				return false;
-			}
-			createStockDataMessage(doc); // Create the scrolling message
-			http.end(); // Close connection
-			return true;
-		} else {
-			Serial.printf("HTTP call error: %d\n", http.GET());
-			http.end();
-			return false;
-		}
-	} else {
-		Serial.println("Error while connecting to the host.");
-		return false;
-	}
-	*/
-
-	// const char* host = "financialmodelingprep.com";
     char url[100]; // URL modificato per utilizzare HTTP
     sprintf(url, "http://financialmodelingprep.com/api/v3/quote/BTCUSD?apikey=%s", apiKey);
     http.begin(client, url); // Inizia una chiamata HTTP all'URL specificato
@@ -448,9 +329,9 @@ void manageLedMatrix() {
         }
 
         P.displayReset(); // Reset the matrix
-		if (checkWifiConnection()) // Check if connected to WiFi
+		if (!checkWifiConnection()) // Check if connected to WiFi
 			return; // // If not connected, exit the function
-		if (callAPI()) // Call the API
+		if (!callAPI()) // Call the API
 			return; // If error, exit the function
 
         // Print messagges
@@ -484,7 +365,6 @@ void manageLedMatrix() {
 
 // Setup the web client
 void setupWebClient() {
-	// client.setInsecure(); // HTTPS connection
     http.setTimeout(5000); // Set timeout
 }
 
@@ -514,8 +394,6 @@ void setupServer() {
 // Setup
 void setup() {
 	Serial.begin(9600); // Start serial
-	Serial.println( currency(10000000, 0, '.', ',', '$') );
-	Serial.println( currency(10000000, 2, '.', ',', '$') );
 	setupLittleFS(); // Setup LittleFS
 	setupServer(); // Setup server
 	manageWiFiConnection(); // Manage WiFi connection
