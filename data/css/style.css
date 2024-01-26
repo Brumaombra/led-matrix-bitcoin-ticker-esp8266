@@ -1,3 +1,11 @@
+/* Hidden */
+.hidden {
+    display: none;
+}
+.show {
+    display: block !important;
+}
+
 /* Buttons */
 .btn {
     font-weight: 700;
@@ -14,6 +22,12 @@
 .navbarLogo {
     height: 35px;
     width: 35px;
+}
+.nav-link {
+    cursor: pointer;
+}
+.navbar-nav .nav-link.active {
+    font-weight: 500;
 }
 
 /* Centered container */
