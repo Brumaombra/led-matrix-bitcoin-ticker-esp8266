@@ -3,7 +3,9 @@ const connectionStatus = { WIFI_TRY: 2, WIFI_OK: 1, WIFI_KO: 0 }; // Connection 
 
 // Document ready
 $(document).ready(() => {
-    init(); // Init function
+    setTimeout(() => {
+        init(); // Init function
+    }, 2000); // Wait 2 seconds (To not overload the ESP)
 });
 
 // Init function

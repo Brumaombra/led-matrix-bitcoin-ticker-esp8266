@@ -1,50 +1,51 @@
 
-# ESP8266 LED Matrix Bitcoin Ticker
+# LED Matrix Bitcoin Ticker with ESP8266
 
 ## Overview
-This project turns an ESP8266 microcontroller and a MAX7219 LED matrix into a dynamic Bitcoin ticker. It displays the latest Bitcoin price information, providing a unique and informative crypto display.
+This project transforms an ESP8266 microcontroller and a MAX7219 LED matrix into a dynamic Bitcoin ticker. It displays a set of up-to-date information about Bitcoin, such as the current price, daily change, yearly high, yearly low, and opening price, providing a unique and informative crypto display.
 
 ## Features
-- **Real-Time Bitcoin Price Display:** Shows up-to-date Bitcoin prices.
-- **WiFi Connectivity:** Connects to the internet to fetch real-time data.
-- **Web Server for Configuration:** Includes a web server for easy WiFi configuration.
-- **Scrolling Text Display:** Displays various financial data in a scrolling format.
+- **Real-Time Bitcoin Information:** Displays a variety of helpful, up-to-date Bitcoin data, including the current price, daily change, yearly high, yearly low, and opening price.
+- **WiFi Connectivity:** Connects to the internet using WiFi to fetch real-time data.
+- **Web Server for Configuration:** Features a web server with a simple web page for easy WiFi configuration.
 
 ## Hardware Requirements
 - ESP8266 Microcontroller
 - MAX7219 LED Matrix
 - Power supply for the ESP8266
-
-## Hardware Configuration
-- **LED Matrix Control:** Uses `MD_Parola` and `MD_MAX72xx` libraries.
-- **Pin Configuration:** Customize CLK, DATA, and CS pin connections.
-- **Modular Setup:** Supports a variable number of LED matrix modules.
+- Jumper wires for connecting the LED Matrix to the ESP
 
 ## Software Dependencies
-- PlatformIO
-- Libraries: MD_Parola, MD_MAX72xx, SPI, ESP8266WiFi, ESP8266WebServer, ESP8266HTTPClient, ArduinoJson, WiFiClientSecure, LittleFS.
-
-## Installation
-1. Connect the MAX7219 LED matrix to the ESP8266 following the specified pin configuration.
-2. Compile and upload the `main.cpp` file to the ESP8266 using PlatformIO.
-3. Place the contents of the `data` folder in the root directory of the ESP8266's file system.
+- `PlatformIO` extension for Visual Studio Code (as the IDE)
+- Libraries: `MD_Parola.h`, `MD_MAX72xx.h`, `ESP8266WiFi.h`, `ESP8266HTTPClient.h`, `ArduinoJson.h`, `WiFiClientSecure.h`, `LittleFS.h`, `ESPAsyncWebServer.h`
 
 ## Configuration and Usage
-1. Initially, the ESP8266 will create an access point named "Bitcoin-Ticker."
-2. Connect to this access point and access the ESP8266's IP in a browser to configure WiFi settings.
-3. Enter WiFi network credentials; the device will restart and connect to your network.
-4. The LED matrix will then start showing the current Bitcoin price and other financial data.
-
-## API Configuration
-- **Financial Data Source:** The ticker fetches data from `financialmodelingprep.com`.
-- **API Key Required:** Users must provide their API key for data access.
+1. Connect the LED Matrix to the ESP8266 using jumper wires.
+2. Download the source code from the repository.
+3. Verify that the pinout of the LED Matrix is correct; adjust the values to match your configuration if necessary.
+4. Create a free account at [`financialmodelingprep.com`](https://site.financialmodelingprep.com) and enter the provided API key in the `apiKey` variable.
+5. Connect the ESP to your computer via USB.
+6. Use **PlatformIO** to write the `data` folder onto the flash memory of the ESP8266 (`Build Filesystem Image`, then `Upload Filesystem Image`).
+7. Use **PlatformIO** to upload the source code to the ESP.
+8. After rebooting, a `Bitcoin-Ticker` WiFi access point should appear. Connect to it and enter `192.168.4.1` in your browser's URL bar.
+9. Enter your WiFi credentials on the web page to connect the ESP to your WiFi network.
+10. If a success message appears, your Bitcoin ticker is ready!
+11. **Enjoy your ticker!** ❤️
 
 ## Customization Options
-- **Number of LED Modules:** Adjustable based on your setup.
+- **Number of LED Modules:** Can be adjusted based on your setup.
 - **Pinout Configuration:** Modify CLK, DATA, and CS pins as needed.
-- **Scroll Speed:** Adjust the scroll delay for the text display.
+- **Scroll Speed:** Customize the scroll delay for the LED Matrix.
 
-For detailed setup and customization instructions, refer to comments within the `main.cpp` file.
+For advanced setup and customization instructions, refer to the comments within the `main.cpp` file.
+
+## Special Thanks
+Special thanks to all these amazing people and their contributions: ❤️
+- [`RobTillaart`](https://github.com/RobTillaart) for the inspiration of the currency formatter function in his [`currency`](https://github.com/RobTillaart/Currency) library.
+- [`MajicDesigns`](https://github.com/MajicDesigns) for the [`MD_Parola`](https://github.com/MajicDesigns/MD_Parola) and [`MD_MAX72XX`](https://github.com/MajicDesigns/MD_MAX72XX) libraries.
+- [`esp8266`](https://github.com/esp8266) for the `ESP8266WiFi`, `ESP8266HTTPClient`, `WiFiClientSecure`, and `LittleFS` libraries ([repository](https://github.com/esp8266/Arduino)).
+- [`bblanchon`](https://github.com/bblanchon) for the [`ArduinoJson`](https://github.com/bblanchon/ArduinoJson) library.
+- [`me-no-dev`](https://github.com/me-no-dev) for the [`ESPAsyncWebServer`](https://github.com/me-no-dev/ESPAsyncWebServer) library.
 
 ## Author
 Mauro Brambilla - brumaombra

@@ -65,7 +65,7 @@ void printOnLedMatrix(const char* message, const byte stringLength, uint16_t mes
 	newMessageAvailable = true; // New message available
 }
 
-// Format a currency
+// Format a currency - Inspired by the Currency library made by RobTillaart
 char* addThousandsSeparators(int32_t value, int decimals, char decimalSeparator, char thousandSeparator, char symbol = ' ') {
 	static char tmp[16]; // Temporary buffer to store the formatted string
 	uint8_t index = 0; // Index for placing characters in tmp
@@ -274,12 +274,10 @@ bool manageWiFiConnection() {
 				disableAccessPoint = false; // Mark as disabled
 		}
 
-		// Check if connected to WiFi
-		if (WiFi.status() == WL_CONNECTED)
+		if (WiFi.status() == WL_CONNECTED) // Check if connected to WiFi
 			return true; // If connected exit the function
-
-		// Check if credentials are already present
-		if (wiFiSSID[0] != '\0' && wiFiPassword[0] != '\0') {
+			
+		if (wiFiSSID[0] != '\0' && wiFiPassword[0] != '\0') { // Check if credentials are already present
 			if (connectToWiFi()) // Connecting to WiFi
 				return true; // Connection success
 			else
@@ -307,6 +305,11 @@ bool checkWifiConnection() {
 bool callAPI() {
 	currentMillis = millis();
 	if (currentMillis - timestampStockData > 360000 || timestampStockData == 0) { // Call the API every 6 minutes (To limit usage)
+		if(apiKey[0] == '\0') { // Check if API key is present
+			const char errorMessageApi[] = "API key is not present. Insert the key into the source code and try again.";
+			printOnLedMatrix(errorMessageApi, sizeof(errorMessageApi)); // Print the message on the matrix
+			return false; // If error, return false
+		}
 		Serial.println("Calling the API");
 		if (!getStockDataAPI()) { // Getting the data
 			const char errorMessageServer[] = "Error while calling the API. Retrying...";
