@@ -1,18 +1,25 @@
 const ESPIP = ""; // http://localhost:3000
 const connectionStatus = { WIFI_TRY: 2, WIFI_OK: 1, WIFI_KO: 0 }; // Connection status types
 
-/* Document ready
+// Document ready
 $(document).ready(() => {
     setTimeout(() => {
         init(); // Init function
-    }, 2000); // Wait 2 seconds (To not overload the ESP)
+    }, 3000); // Wait 3 seconds (To not overload the ESP)
 });
-*/
 
 // Init function
 const init = () => {
     addEventListeners(); // Add event listeners
-    getNetworks(); // Get the networks
+    Promise.all([ // Call the pomises
+        new Promise((resolve, reject) => { getNetworks(resolve, reject); }), // Get the networks
+        new Promise((resolve, reject) => { getValuesSettings(resolve, reject); }) // Get the visibility settings
+    ]).then(results => {
+        setBusy(false); // Busy off
+    }).catch(error => {
+        setBusy(false); // Busy off
+        console.log("Error: ", error);
+    });
 };
 
 // Open the selected page
@@ -52,12 +59,13 @@ const addEventListeners = () => {
 };
 
 // Get the SSIDs
-const getNetworks = () => {
-    setBusy(true); // Busy on
+const getNetworks = (successCallback, errorCallback) => {
+    !successCallback && setBusy(true); // Busy on only if there's no callback
     fetch(`${ESPIP}/networks`).then(response => {
         return response.json(); // Get the JSON
     }).then(data => {
-        setBusy(false); // Busy off
+        successCallback && successCallback(data); // If success call the function
+        !successCallback && setBusy(false); // Busy off only if there's no callback
         const networks = data.networks || []; // Networks list
         const select = $("#inputSSID");
         select.empty(); // Clear the select options
@@ -77,7 +85,8 @@ const getNetworks = () => {
             }));
         });
     }).catch(error => {
-        setBusy(false); // Busy off
+        errorCallback && errorCallback(error); // If error call the function
+        !errorCallback && setBusy(false); // Busy off only if there's no callback
         $("#errorModalMessage").text("An error occurred while getting the list of available WiFi networks"); // Set the error message
         $("#modalError").modal("show"); // Open the modal
         $("#inputSSID").prop("disabled", false); // Enable element
@@ -138,6 +147,11 @@ const checkWiFiConnectionPolling = () => {
 // Save the API key
 const saveApiKey = () => {
     const apiKey = $("#inputApiKey").val();
+    if (!apiKey) { // Check if the API key is empty
+        $("#errorModalMessage").text("Insert the API key"); // Set the error message
+        $("#modalError").modal("show"); // Open the modal
+        return; // If the API key is empty, return
+    }
     setBusy(true); // Busy on
     const queryString = new URLSearchParams({ // Create the query strings with parameters
         apiKey: apiKey || ""
@@ -146,6 +160,7 @@ const saveApiKey = () => {
         return response.json(); // Get the JSON
     }).then(data => {
         setBusy(false); // Busy off
+        $("#inputApiKey").val(""); // Empty the field
         $("#successModalMessage").text("API key saved successfully!"); // Set the success message
         $("#modalSuccess").modal("show"); // Open the modal
     }).catch(error => {
@@ -158,18 +173,22 @@ const saveApiKey = () => {
 /**************************** DISPLAY VALUES SETTINGS ****************************/
 
 // Get the values
-const getValuesSettings = () => {
-    setBusy(true); // Busy on
+const getValuesSettings = (successCallback, errorCallback) => {
     fetch(`${ESPIP}/valuesSettings`).then(response => {
         return response.json(); // Get the JSON
     }).then(data => {
-        $("#selectCurrentPrice").val(data.currentPrice || "true").trigger("change"); // Set the visibility
-        $("#selectPriceChange").val(data.priceChange || "true").trigger("change"); // Set the visibility
-        $("#selectHighLow").val(data.yearHighLow || "true").trigger("change"); // Set the visibility
-        $("#selectOpenPrice").val(data.openPrice || "true").trigger("change"); // Set the visibility
-        setBusy(false); // Busy off
+        successCallback && successCallback(data); // If success call the function
+        $("#selectCurrentPrice").val(data.currentPrice || "Y").trigger("change"); // Set the visibility
+        $("#selectPriceChange").val(data.priceChange || "Y").trigger("change"); // Set the visibility
+        $("#selectMarketCap").val(data.marketCap || "Y").trigger("change"); // Set the visibility
+        $("#selectDailyHighLow").val(data.dailyHighLow || "Y").trigger("change"); // Set the visibility
+        $("#selectYearHighLow").val(data.yearHighLow || "Y").trigger("change"); // Set the visibility
+        $("#selectOpenPrice").val(data.openPrice || "Y").trigger("change"); // Set the visibility
+        $("#selectVolume").val(data.volume || "Y").trigger("change"); // Set the visibility
+        $("#selectBitcoinMined").val(data.bitcoinMined || "Y").trigger("change"); // Set the visibility
+        $("#selectSeparator").val(data.thousandsSeparator || "US").trigger("change"); // Set the visibility
     }).catch(error => {
-        setBusy(false); // Busy off
+        errorCallback && errorCallback(error); // If error call the function
         $("#errorModalMessage").text("An error occurred while getting the visibility of the values"); // Set the error message
         $("#modalError").modal("show"); // Open the modal
     });
@@ -179,20 +198,25 @@ const getValuesSettings = () => {
 const saveValuesSetting = () => {
     setBusy(true); // Busy on
     const queryString = new URLSearchParams({ // Create the query strings with parameters
-        currentPrice: $("#selectCurrentPrice").val() || "true",
-        priceChange: $("#selectPriceChange").val() || "true",
-        yearHighLow: $("#selectHighLow").val() || "true",
-        openPrice: $("#selectOpenPrice").val() || "true"
+        currentPrice: $("#selectCurrentPrice").val() || "Y",
+        priceChange: $("#selectPriceChange").val() || "Y",
+        marketCap: $("#selectMarketCap").val() || "Y",
+        dailyHighLow: $("#selectDailyHighLow").val() || "Y",
+        yearHighLow: $("#selectYearHighLow").val() || "Y",
+        openPrice: $("#selectOpenPrice").val() || "Y",
+        volume: $("#selectVolume").val() || "Y",
+        bitcoinMined: $("#selectBitcoinMined").val() || "Y",
+        thousandsSeparator: $("#selectSeparator").val() || "US"
     }).toString();
     fetch(`${ESPIP}/saveValuesSettings?${queryString}`).then(response => {
         return response.json(); // Get the JSON
     }).then(data => {
         setBusy(false); // Busy off
-        $("#successModalMessage").text("Visibility settings saved successfully!"); // Set the success message
+        $("#successModalMessage").text("Settings saved successfully!"); // Set the success message
         $("#modalSuccess").modal("show"); // Open the modal
     }).catch(error => {
         setBusy(false); // Busy off
-        $("#errorModalMessage").text("An error occurred while saving the visibility of the values"); // Set the error message
+        $("#errorModalMessage").text("An error occurred while saving the settings"); // Set the error message
         $("#modalError").modal("show"); // Open the modal
     });
 };

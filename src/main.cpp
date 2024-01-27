@@ -34,7 +34,7 @@ unsigned long timestampStockData = 0; // Timestamp stock data
 unsigned long timestampWiFiConnection = 0; // Timestamp WiFi connection
 enum formatNum { FORMAT_US = 1, FORMAT_EU = 2 }; // Numeric formatting type
 formatNum formatType = FORMAT_US; // Current numeric formatting type
-enum printType { PRINT_PRICE = 0, PRINT_CHANGE = 1, PRINT_HIGH_LOW = 2, PRINT_OPEN = 3 }; // Print type
+enum printType { PRINT_PRICE = 0, PRINT_CHANGE = 1, PRINT_MARKET_CAP = 2, PRINT_DAILY_HIGH_LOW = 3, PRINT_YEAR_HIGH_LOW = 4, PRINT_OPEN = 5, PRINT_VOLUME = 6, PRINT_BITCOIN_MINED = 7 }; // Print type
 printType switchText = PRINT_PRICE; // Variable for the switch
 char apiKey[35] = ""; // Your API key for financialmodelingprep.com <- TODO - Change with your data
 MD_Parola P = MD_Parola(HARDWARE_TYPE, CS_PIN, MAX_DEVICES);
@@ -42,15 +42,25 @@ uint8_t scrollDelay = 30; // Matrix refresh delay
 textEffect_t scrollEffect = PA_SCROLL_LEFT; // Scrolling effect
 textPosition_t scrollAlign = PA_LEFT; // Scroll direction
 uint16_t scrollPause = 0; // Pause at the end of scrolling
+bool currentPriceVisible = true; // Current price visible
+bool priceChangeVisible = true; // Price change visible
+bool marketCapVisible = true; // Market cap visible
+bool dailyHighLowVisible = true; // Daily high/low visible
+bool yearHighLowVisible = true; // Year high/low visible
+bool openPriceVisible = true; // Open price visible
+bool volumeVisible = true; // Volume visible
+bool bitcoinMinedVisible = true; // Total bitcoin mined visible
 
 // Global message buffers shared by serial and scrolling functions
-char curMessage[BUF_SIZE]; // Current message
-char newMessage[BUF_SIZE]; // New message
+char currentMessage[BUF_SIZE]; // Current message
 char stripMessagePrice[BUF_SIZE]; // Price
 char stripMessageDailyChange[BUF_SIZE]; // Change
-char stripMessageHighLow[BUF_SIZE]; // Year High/Low
+char stripMessageMarketCap[BUF_SIZE]; // Market Cap
+char stripMessageDailyHighLow[BUF_SIZE]; // Daily High/Low
+char stripMessageYearHighLow[BUF_SIZE]; // Year High/Low
 char stripMessageOpen[BUF_SIZE]; // Open
-bool newMessageAvailable = true; // New available message
+char stripMessageVolume[BUF_SIZE]; // Volume
+char stripMessageBitcoinMined[BUF_SIZE]; // Total Bitcoin mined
 
 // Custom string copy function
 void stringCopy(char* destination, const char* text, int length) {
@@ -60,9 +70,8 @@ void stringCopy(char* destination, const char* text, int length) {
 
 // Print the message on the matrix
 void printOnLedMatrix(const char* message, const byte stringLength, uint16_t messageStill = scrollPause) {
-	stringCopy(newMessage, message, stringLength); // Copy the message
-	P.displayText(newMessage, scrollAlign, scrollDelay, messageStill, scrollEffect, scrollEffect); // Print the message on the matrix
-	newMessageAvailable = true; // New message available
+	stringCopy(currentMessage, message, stringLength); // Copy the message
+	P.displayText(currentMessage, scrollAlign, scrollDelay, messageStill, scrollEffect, scrollEffect); // Print the message on the matrix
 }
 
 // Format a currency - Inspired by the Currency library made by RobTillaart
@@ -123,17 +132,41 @@ void createStockDataMessage(JsonDocument doc) {
 	formatCurrency(tempVal, tempString, MAX_NUMBER_SIZE); // Format number
 	snprintf(stripMessageDailyChange, BUF_SIZE, "Daily Change: $ %s", tempString);
 
+	// Market cap
+	tempVal = doc[0]["marketCap"].as<double>();
+	formatCurrency(tempVal, tempString, MAX_NUMBER_SIZE); // Format number
+	snprintf(stripMessageMarketCap, BUF_SIZE, "Market Cap: $ %s", tempString);
+
+	// Daily High/Low
+	tempVal = doc[0]["dayHigh"].as<double>();
+	tempVal2 = doc[0]["dayLow"].as<double>();
+	formatCurrency(tempVal, tempString, MAX_NUMBER_SIZE); // Format number
+	formatCurrency(tempVal2, tempString2, MAX_NUMBER_SIZE); // Format number
+	snprintf(stripMessageDailyHighLow, BUF_SIZE, "Daily High: $ %s  -  Daily Low: $ %s", tempString, tempString2);
+
 	// Year High/Low
 	tempVal = doc[0]["yearHigh"].as<double>();
 	tempVal2 = doc[0]["yearLow"].as<double>();
 	formatCurrency(tempVal, tempString, MAX_NUMBER_SIZE); // Format number
 	formatCurrency(tempVal2, tempString2, MAX_NUMBER_SIZE); // Format number
-	snprintf(stripMessageHighLow, BUF_SIZE, "Year High: $ %s  -  Year Low: $ %s", tempString, tempString2);
+	snprintf(stripMessageYearHighLow, BUF_SIZE, "Year High: $ %s  -  Year Low: $ %s", tempString, tempString2);
 
 	// Open
 	tempVal = doc[0]["open"].as<double>();
 	formatCurrency(tempVal, tempString, MAX_NUMBER_SIZE); // Format number
 	snprintf(stripMessageOpen, BUF_SIZE, "Open: $ %s", tempString);
+
+	// Volume
+	tempVal = doc[0]["volume"].as<double>();
+	formatCurrency(tempVal, tempString, MAX_NUMBER_SIZE); // Format number
+	snprintf(stripMessageVolume, BUF_SIZE, "Volume: $ %s", tempString);
+
+	// Bitcoin mined
+	tempVal = doc[0]["sharesOutstanding"].as<double>();
+	tempVal2 = tempVal / 21000000 * 100; // Current supply percentage
+	formatCurrency(tempVal, tempString, MAX_NUMBER_SIZE); // Format number
+	formatCurrency(tempVal2, tempString2, MAX_NUMBER_SIZE); // Format number
+	snprintf(stripMessageBitcoinMined, BUF_SIZE, "Total Bitcoin mined: %s (%s%%)", tempString, tempString2);
 }
 
 // Getting Bitcoin data
@@ -235,6 +268,48 @@ void setupRoutes() {
 			request->send(200, "application/json", json); // Send the JSON object
 		});
     });
+
+	// Save the API key
+	server.on("/apiKey", HTTP_GET, [](AsyncWebServerRequest *request) {
+		if (!request->hasParam("apiKey")) { // Check if the API key is missing
+        	request->send(400, "application/json", "{\"status\":\"KO\"}"); // Send the JSON object
+        	return;
+    	}
+		stringCopy(apiKey, request->getParam("apiKey")->value().c_str(), 35); // Save the API key
+		request->send(200, "application/json", "{\"status\":\"OK\"}"); // Send the JSON object
+		Serial.println("API key changed");
+	});
+
+	// Get the values visibility settings
+	server.on("/valuesSettings", HTTP_GET, [](AsyncWebServerRequest *request) {
+		JsonDocument doc; // JSON object
+		doc["currentPrice"] = currentPriceVisible ? "Y" : "N";
+		doc["priceChange"] = priceChangeVisible ? "Y" : "N";
+		doc["marketCap"] = marketCapVisible ? "Y" : "N";
+		doc["dailyHighLow"] = dailyHighLowVisible ? "Y" : "N";
+		doc["yearHighLow"] = yearHighLowVisible ? "Y" : "N";
+		doc["openPrice"] = openPriceVisible ? "Y" : "N";
+		doc["volume"] = volumeVisible ? "Y" : "N";
+		doc["bitcoinMined"] = bitcoinMinedVisible ? "Y" : "N";
+		size_t jsonLength = measureJson(doc) + 1; // Get the size of the JSON object
+		char json[jsonLength];
+		serializeJson(doc, json, jsonLength);
+		request->send(200, "application/json", json); // Send the JSON object
+	});
+
+	// Save the values visibility settings
+	server.on("/saveValuesSettings", HTTP_GET, [](AsyncWebServerRequest *request) {
+		currentPriceVisible = request->getParam("currentPrice")->value() == "Y" ? true : false;
+		priceChangeVisible = request->getParam("priceChange")->value() == "Y" ? true : false;
+		marketCapVisible = request->getParam("marketCap")->value() == "Y" ? true : false;
+		dailyHighLowVisible = request->getParam("dailyHighLow")->value() == "Y" ? true : false;
+		yearHighLowVisible = request->getParam("yearHighLow")->value() == "Y" ? true : false;
+		openPriceVisible = request->getParam("openPrice")->value() == "Y" ? true : false;
+		volumeVisible = request->getParam("volume")->value() == "Y" ? true : false;
+		bitcoinMinedVisible = request->getParam("bitcoinMined")->value() == "Y" ? true : false;
+		request->send(200, "application/json", "{\"status\":\"OK\"}");
+		Serial.println("Visibility settings changed");
+	});
 }
 
 // Setting up the access point
@@ -305,8 +380,8 @@ bool checkWifiConnection() {
 bool callAPI() {
 	currentMillis = millis();
 	if (currentMillis - timestampStockData > 360000 || timestampStockData == 0) { // Call the API every 6 minutes (To limit usage)
-		if(apiKey[0] == '\0') { // Check if API key is present
-			const char errorMessageApi[] = "API key is not present. Insert the key into the source code and try again.";
+		if (apiKey[0] == '\0') { // Check if API key is present
+			const char errorMessageApi[] = "API key is not present. Use the web page to insert the key and try again.";
 			printOnLedMatrix(errorMessageApi, sizeof(errorMessageApi)); // Print the message on the matrix
 			return false; // If error, return false
 		}
@@ -324,46 +399,72 @@ bool callAPI() {
 
 // Manage the LED matrix
 void manageLedMatrix() {
-    if (P.displayAnimate()) { // Is currently scrolling
-        Serial.println("End of cycle");
-        if (newMessageAvailable) { // Is a new message available?
-            stringCopy(curMessage, newMessage, BUF_SIZE); // Store the new message
-            newMessageAvailable = false; // Exit the IF statement
-        }
+	if (!P.displayAnimate())
+		return; // If scrolling, exit the function
+	
+	if (!checkWifiConnection()) // Check if connected to WiFi
+		return; // If not connected, exit the function
+	if (!callAPI()) // Call the API
+		return; // If error, exit the function
 
-        P.displayReset(); // Reset the matrix
-		if (!checkWifiConnection()) // Check if connected to WiFi
-			return; // // If not connected, exit the function
-		if (!callAPI()) // Call the API
-			return; // If error, exit the function
-
-        // Print messagges
-        switch (switchText) {
-			case PRINT_PRICE:
-				Serial.println("Print: PRICE");
+	// Print messagges
+	switch (switchText) {
+		case PRINT_PRICE:
+			Serial.println("Section: PRICE");
+			if (currentPriceVisible) // Check if current price is visible
 				printOnLedMatrix(stripMessagePrice, BUF_SIZE, 30000); // Print the message on the matrix
-				switchText = PRINT_CHANGE;
-				break;
+			switchText = PRINT_CHANGE;
+			break;
 
-			case PRINT_CHANGE:
-				Serial.println("Print: CHANGE");
+		case PRINT_CHANGE:
+			Serial.println("Section: CHANGE");
+			if (priceChangeVisible) // Check if price change is visible
 				printOnLedMatrix(stripMessageDailyChange, BUF_SIZE); // Print the message on the matrix
-				switchText = PRINT_HIGH_LOW;
-				break;
+			switchText = PRINT_MARKET_CAP;
+			break;
+		
+		case PRINT_MARKET_CAP:
+			Serial.println("Section: MARKET CAP");
+			if(marketCapVisible) // Check if market cap is visible
+				printOnLedMatrix(stripMessageMarketCap, BUF_SIZE); // Print the message on the matrix
+			switchText = PRINT_DAILY_HIGH_LOW;
+			break;
 
-			case PRINT_HIGH_LOW:
-				Serial.println("Print: HIGHLOW");
-				printOnLedMatrix(stripMessageHighLow, BUF_SIZE); // Print the message on the matrix
-				switchText = PRINT_OPEN;
-				break;
+		case PRINT_DAILY_HIGH_LOW:
+			Serial.println("Section: DAILY HIGHLOW");
+			if (dailyHighLowVisible) // Check if daily high/low is visible
+				printOnLedMatrix(stripMessageDailyHighLow, BUF_SIZE); // Print the message on the matrix
+			switchText = PRINT_YEAR_HIGH_LOW;
+			break;
 
-			case PRINT_OPEN:
-				Serial.println("Print: OPEN");
+		case PRINT_YEAR_HIGH_LOW:
+			Serial.println("Section: YEAR HIGHLOW");
+			if (yearHighLowVisible) // Check if year high/low is visible
+				printOnLedMatrix(stripMessageYearHighLow, BUF_SIZE); // Print the message on the matrix
+			switchText = PRINT_OPEN;
+			break;
+
+		case PRINT_OPEN:
+			Serial.println("Section: OPEN");
+			if (openPriceVisible) // Check if open price is visible
 				printOnLedMatrix(stripMessageOpen, BUF_SIZE); // Print the message on the matrix
-				switchText = PRINT_PRICE;
-				break;
-        }
-    }
+			switchText = PRINT_VOLUME;
+			break;
+			
+		case PRINT_VOLUME:
+			Serial.println("Section: VOLUME");
+			if(volumeVisible) // Check if volume is visible
+				printOnLedMatrix(stripMessageVolume, BUF_SIZE); // Print the message on the matrix
+			switchText = PRINT_BITCOIN_MINED;
+			break;
+		
+		case PRINT_BITCOIN_MINED:
+			Serial.println("Section: MINED");
+			if(bitcoinMinedVisible) // Check if bitcoin mined is visible
+				printOnLedMatrix(stripMessageBitcoinMined, BUF_SIZE); // Print the message on the matrix
+			switchText = PRINT_PRICE;
+			break;
+	}
 }
 
 // Setup the web client
@@ -374,8 +475,7 @@ void setupWebClient() {
 // Setup the LED matrix
 void setupLedMatrix() {
 	P.begin(); // Start the LED matrix
-    sprintf(curMessage, "Initializing...");
-    P.displayText(curMessage, scrollAlign, scrollDelay, scrollPause, scrollEffect, scrollEffect);
+	printOnLedMatrix("Initializing...", BUF_SIZE); // Print the message on the matrix
 }
 
 // Setup LittleFS

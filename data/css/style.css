@@ -29,6 +29,9 @@
 .navbar-nav .nav-link.active {
     font-weight: 500;
 }
+.navbar-toggler:focus {
+    box-shadow: none;
+}
 
 /* Centered container */
 .center-container {
@@ -79,7 +82,7 @@
 
 /* Busy full-screen */
 .fullscreen-loader {
-    display: none;
+    /* display: none; */
     position: fixed;
     top: 0;
     left: 0;
