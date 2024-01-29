@@ -186,7 +186,7 @@ const getValuesSettings = (successCallback, errorCallback) => {
         $("#selectOpenPrice").val(data.openPrice || "Y").trigger("change"); // Set the visibility
         $("#selectVolume").val(data.volume || "Y").trigger("change"); // Set the visibility
         $("#selectBitcoinMined").val(data.bitcoinMined || "Y").trigger("change"); // Set the visibility
-        $("#selectSeparator").val(data.thousandsSeparator || "US").trigger("change"); // Set the visibility
+        $("#selectFormatType").val(data.formatType || "US").trigger("change"); // Set the visibility
     }).catch(error => {
         errorCallback && errorCallback(error); // If error call the function
         $("#errorModalMessage").text("An error occurred while getting the visibility of the values"); // Set the error message
@@ -206,7 +206,7 @@ const saveValuesSetting = () => {
         openPrice: $("#selectOpenPrice").val() || "Y",
         volume: $("#selectVolume").val() || "Y",
         bitcoinMined: $("#selectBitcoinMined").val() || "Y",
-        thousandsSeparator: $("#selectSeparator").val() || "US"
+        formatType: $("#selectFormatType").val() || "US"
     }).toString();
     fetch(`${ESPIP}/saveValuesSettings?${queryString}`).then(response => {
         return response.json(); // Get the JSON

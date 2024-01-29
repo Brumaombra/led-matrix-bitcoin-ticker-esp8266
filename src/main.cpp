@@ -25,6 +25,7 @@ HTTPClient http; // HTTP object
 const char accessPointSSID[] = "Bitcoin-Ticker"; // Access point SSID
 char wiFiSSID[35] = ""; // Network SSID
 char wiFiPassword[70] = ""; // Network password
+char apiKey[35] = ""; // Your API key for financialmodelingprep.com
 bool accessPointEnabled = false; // If access point enabled
 bool disableAccessPoint = false; // If I need to disable the access point
 enum connectionStatus { WIFI_TRY = 2, WIFI_OK = 1, WIFI_KO = 0 }; // Connection status
@@ -36,7 +37,6 @@ enum formatNum { FORMAT_US = 1, FORMAT_EU = 2 }; // Numeric formatting type
 formatNum formatType = FORMAT_US; // Current numeric formatting type
 enum printType { PRINT_PRICE = 0, PRINT_CHANGE = 1, PRINT_MARKET_CAP = 2, PRINT_DAILY_HIGH_LOW = 3, PRINT_YEAR_HIGH_LOW = 4, PRINT_OPEN = 5, PRINT_VOLUME = 6, PRINT_BITCOIN_MINED = 7 }; // Print type
 printType switchText = PRINT_PRICE; // Variable for the switch
-char apiKey[35] = ""; // Your API key for financialmodelingprep.com <- TODO - Change with your data
 MD_Parola P = MD_Parola(HARDWARE_TYPE, CS_PIN, MAX_DEVICES);
 uint8_t scrollDelay = 30; // Matrix refresh delay
 textEffect_t scrollEffect = PA_SCROLL_LEFT; // Scrolling effect
@@ -75,10 +75,10 @@ void printOnLedMatrix(const char* message, const byte stringLength, uint16_t mes
 }
 
 // Format a currency - Inspired by the Currency library made by RobTillaart
-char* addThousandsSeparators(int32_t value, int decimals, char decimalSeparator, char thousandSeparator, char symbol = ' ') {
-	static char tmp[16]; // Temporary buffer to store the formatted string
+char* addThousandsSeparators(double value, int decimals, char decimalSeparator, char thousandSeparator, char symbol = ' ') {
+	static char tmp[30]; // Temporary buffer to store the formatted string
 	uint8_t index = 0; // Index for placing characters in tmp
-	int32_t v = value; // Copy of the input value
+	int64_t v = (int64_t)value; // Convert the value to an integer
 	bool negative = v < 0; // Flag for negative numbers
 	if (negative) v = -v; // Make v positive for processing
 	int pos = -decimals; // Tracks the position relative to the decimal point
@@ -100,7 +100,7 @@ char* addThousandsSeparators(int32_t value, int decimals, char decimalSeparator,
 		tmp[i] = tmp[j];
 		tmp[j] = c;
 	}
-	return tmp; // Return the pointer to the formatted string.
+	return tmp; // Return the pointer to the formatted string
 }
 
 // Format currency
@@ -222,6 +222,10 @@ void setupRoutes() {
 
 	// Connect to WiFi
 	server.on("/connect", HTTP_GET, [](AsyncWebServerRequest *request) {
+		if(!request->hasParam("ssid") || !request->hasParam("password")) { // Check required fields
+			request->send(400, "application/json", "{\"status\":\"KO\"}"); // Response
+			return;
+		}
 		stringCopy(wiFiSSID, request->getParam("ssid")->value().c_str(), 35); // Save the SSID
 		stringCopy(wiFiPassword, request->getParam("password")->value().c_str(), 70); // Save the password
 		Serial.print("SSID: ");
@@ -291,6 +295,7 @@ void setupRoutes() {
 		doc["openPrice"] = openPriceVisible ? "Y" : "N";
 		doc["volume"] = volumeVisible ? "Y" : "N";
 		doc["bitcoinMined"] = bitcoinMinedVisible ? "Y" : "N";
+		doc["formatType"] = formatType == FORMAT_US ? "US" : "EU";
 		size_t jsonLength = measureJson(doc) + 1; // Get the size of the JSON object
 		char json[jsonLength];
 		serializeJson(doc, json, jsonLength);
@@ -299,16 +304,26 @@ void setupRoutes() {
 
 	// Save the values visibility settings
 	server.on("/saveValuesSettings", HTTP_GET, [](AsyncWebServerRequest *request) {
-		currentPriceVisible = request->getParam("currentPrice")->value() == "Y" ? true : false;
-		priceChangeVisible = request->getParam("priceChange")->value() == "Y" ? true : false;
-		marketCapVisible = request->getParam("marketCap")->value() == "Y" ? true : false;
-		dailyHighLowVisible = request->getParam("dailyHighLow")->value() == "Y" ? true : false;
-		yearHighLowVisible = request->getParam("yearHighLow")->value() == "Y" ? true : false;
-		openPriceVisible = request->getParam("openPrice")->value() == "Y" ? true : false;
-		volumeVisible = request->getParam("volume")->value() == "Y" ? true : false;
-		bitcoinMinedVisible = request->getParam("bitcoinMined")->value() == "Y" ? true : false;
+		if (request->hasParam("currentPrice"))
+			currentPriceVisible = request->getParam("currentPrice")->value() == "Y";
+		if (request->hasParam("priceChange"))
+			priceChangeVisible = request->getParam("priceChange")->value() == "Y";
+		if (request->hasParam("marketCap"))
+			marketCapVisible = request->getParam("marketCap")->value() == "Y";
+		if (request->hasParam("dailyHighLow"))
+			dailyHighLowVisible = request->getParam("dailyHighLow")->value() == "Y";
+		if (request->hasParam("yearHighLow"))
+			yearHighLowVisible = request->getParam("yearHighLow")->value() == "Y";
+		if (request->hasParam("openPrice"))
+			openPriceVisible = request->getParam("openPrice")->value() == "Y";
+		if (request->hasParam("volume"))
+			volumeVisible = request->getParam("volume")->value() == "Y";
+		if (request->hasParam("bitcoinMined"))
+			bitcoinMinedVisible = request->getParam("bitcoinMined")->value() == "Y";
+		if (request->hasParam("formatType"))
+			formatType = request->getParam("formatType")->value() == "US" ? FORMAT_US : FORMAT_EU;
 		request->send(200, "application/json", "{\"status\":\"OK\"}");
-		Serial.println("Visibility settings changed");
+		Serial.println("Values settings changed");
 	});
 }
 
@@ -325,17 +340,11 @@ bool setupAccessPoint() {
 // Manage WiFi connection
 bool manageWiFiConnection() {
 	if (wiFiConnectionStatus == WIFI_TRY) { // Check if already trying to connect
-		Serial.print("wiFiConnectionStatus: ");
-		Serial.println(wiFiConnectionStatus);
 		if (connectToWiFi()) { // Connecting to WiFi
 			wiFiConnectionStatus = WIFI_OK; // Update connection status
-			Serial.print("wiFiConnectionStatus: ");
-			Serial.println(wiFiConnectionStatus);
 			return true; // Connection success
 		} else {
 			wiFiConnectionStatus = WIFI_KO; // Update connection status
-			Serial.print("wiFiConnectionStatus: ");
-			Serial.println(wiFiConnectionStatus);
 			return false; // Connection failed
 		}
 	}
@@ -382,16 +391,17 @@ bool callAPI() {
 	if (currentMillis - timestampStockData > 360000 || timestampStockData == 0) { // Call the API every 6 minutes (To limit usage)
 		if (apiKey[0] == '\0') { // Check if API key is present
 			const char errorMessageApi[] = "API key is not present. Use the web page to insert the key and try again.";
+			Serial.println(errorMessageApi);
 			printOnLedMatrix(errorMessageApi, sizeof(errorMessageApi)); // Print the message on the matrix
 			return false; // If error, return false
 		}
 		Serial.println("Calling the API");
 		if (!getStockDataAPI()) { // Getting the data
 			const char errorMessageServer[] = "Error while calling the API. Retrying...";
+			Serial.println(errorMessageServer);
 			printOnLedMatrix(errorMessageServer, sizeof(errorMessageServer)); // Print the message on the matrix
 			return false; // If error, return false
 		}
-		Serial.println("API called");
 		timestampStockData = currentMillis; // Save timestamp
 	}
 	return true; // If no error, return true
@@ -401,7 +411,6 @@ bool callAPI() {
 void manageLedMatrix() {
 	if (!P.displayAnimate())
 		return; // If scrolling, exit the function
-	
 	if (!checkWifiConnection()) // Check if connected to WiFi
 		return; // If not connected, exit the function
 	if (!callAPI()) // Call the API
@@ -425,7 +434,7 @@ void manageLedMatrix() {
 		
 		case PRINT_MARKET_CAP:
 			Serial.println("Section: MARKET CAP");
-			if(marketCapVisible) // Check if market cap is visible
+			if (marketCapVisible) // Check if market cap is visible
 				printOnLedMatrix(stripMessageMarketCap, BUF_SIZE); // Print the message on the matrix
 			switchText = PRINT_DAILY_HIGH_LOW;
 			break;
@@ -453,14 +462,14 @@ void manageLedMatrix() {
 			
 		case PRINT_VOLUME:
 			Serial.println("Section: VOLUME");
-			if(volumeVisible) // Check if volume is visible
+			if (volumeVisible) // Check if volume is visible
 				printOnLedMatrix(stripMessageVolume, BUF_SIZE); // Print the message on the matrix
 			switchText = PRINT_BITCOIN_MINED;
 			break;
 		
 		case PRINT_BITCOIN_MINED:
 			Serial.println("Section: MINED");
-			if(bitcoinMinedVisible) // Check if bitcoin mined is visible
+			if (bitcoinMinedVisible) // Check if bitcoin mined is visible
 				printOnLedMatrix(stripMessageBitcoinMined, BUF_SIZE); // Print the message on the matrix
 			switchText = PRINT_PRICE;
 			break;
