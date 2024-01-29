@@ -6,6 +6,8 @@
 #include <WiFiClientSecure.h>
 #include <LittleFS.h>
 #include <ESPAsyncWebServer.h>
+#include <EEPROM.h>
+#include <StreamUtils.h>
 
 #define PRINT(s, x)
 #define PRINTS(x)
@@ -63,7 +65,8 @@ char stripMessageVolume[BUF_SIZE]; // Volume
 char stripMessageBitcoinMined[BUF_SIZE]; // Total Bitcoin mined
 
 // Custom string copy function
-void stringCopy(char* destination, const char* text, int length) {
+void stringCopy(char* destination, const char* text, size_t length) {
+	if (length <= 0) return; // If length is 0, do nothing
     strncpy(destination, text, length - 1); // Copy the string
     destination[length - 1] = '\0'; // Add the terminating character
 }
@@ -327,6 +330,31 @@ void setupRoutes() {
 	});
 }
 
+// Write data on the EEPROM
+bool writeEEPROM() {
+	EepromStream eepromStream(0, 256);
+	JsonDocument doc; // JSON object
+	// if (apiKeyValid) // Check if the API key is valid
+		doc["apiKey"] = apiKey;
+	// if (wiFiCredentialsValid) { // Check if the WiFi credentials are valid
+		doc["ssid"] = wiFiSSID;
+		doc["password"] = wiFiPassword;
+	// }
+	if (!serializeJson(doc, eepromStream))
+		return false; // Error while writing on EEPROM
+	if (!EEPROM.commit()) // Commit changes
+		return false; // Error while committing changes
+	return true; // Write success
+}
+
+// Read data from the EEPROM
+bool readEEPROM(JsonDocument doc) {
+	EepromStream eepromStream(0, 256);
+	if (!deserializeJson(doc, eepromStream))
+		return false; // Error while reading from EEPROM
+	return true; // Read success
+}
+
 // Setting up the access point
 bool setupAccessPoint() {
 	if (accessPointEnabled) // Check if already enabled
@@ -402,6 +430,7 @@ bool callAPI() {
 			printOnLedMatrix(errorMessageServer, sizeof(errorMessageServer)); // Print the message on the matrix
 			return false; // If error, return false
 		}
+		writeEEPROM(); // Save the apiKey to the EEPROM
 		timestampStockData = currentMillis; // Save timestamp
 	}
 	return true; // If no error, return true
@@ -503,10 +532,30 @@ void setupServer() {
 	server.begin(); // Start the server
 }
 
+// Setup EEPROM
+void setupEEPROM() {
+	EEPROM.begin(256); // Start the EEPROM
+	JsonDocument doc; // JSON object
+	if (!readEEPROM(doc)) { // Read the EEPROM
+		Serial.println("Error while reading the EEPROM");
+		return; // If error, exit the function
+	}
+
+	// Preload the data if present
+	if (doc.containsKey("apiKey") && !doc["apiKey"].isNull()) // Check if the API key is present
+		stringCopy(apiKey, doc["apiKey"], sizeof(apiKey));
+	if (doc.containsKey("ssid") && !doc["ssid"].isNull()) // Check if the WiFi SSID is present
+		stringCopy(wiFiSSID, doc["ssid"], sizeof(wiFiSSID));
+	if (doc.containsKey("password") && !doc["password"].isNull()) // Check if the WiFi password is present
+		stringCopy(wiFiPassword, doc["password"], sizeof(wiFiPassword));
+	Serial.println("EEPROM data loaded");
+}
+
 // Setup
 void setup() {
 	Serial.begin(9600); // Start serial
 	setupLittleFS(); // Setup LittleFS
+	setupEEPROM(); // Setup EEPROM
 	setupServer(); // Setup server
 	manageWiFiConnection(); // Manage WiFi connection
 	setupWebClient(); // Setup web client

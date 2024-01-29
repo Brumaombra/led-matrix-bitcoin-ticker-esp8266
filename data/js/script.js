@@ -11,14 +11,11 @@ $(document).ready(() => {
 // Init function
 const init = () => {
     addEventListeners(); // Add event listeners
-    Promise.all([ // Call the pomises
+    Promise.allSettled([ // Call the pomises
         new Promise((resolve, reject) => { getNetworks(resolve, reject); }), // Get the networks
         new Promise((resolve, reject) => { getValuesSettings(resolve, reject); }) // Get the visibility settings
     ]).then(results => {
         setBusy(false); // Busy off
-    }).catch(error => {
-        setBusy(false); // Busy off
-        console.log("Error: ", error);
     });
 };
 
