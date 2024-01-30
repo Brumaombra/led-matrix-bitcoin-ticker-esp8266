@@ -18,10 +18,10 @@
 #define HARDWARE_TYPE MD_MAX72XX::FC16_HW
 #define BUF_SIZE 250 // Buffer length
 #define MAX_DEVICES 16 // Number of modules <- TODO - Change with your data
-#define CLK_PIN 14 // SCK <- TODO - Change with your data (If needed)
-#define DATA_PIN 13 // MOSI <- TODO - Change with your data (If needed)
-#define CS_PIN 15 // SS <- TODO - Change with your data (If needed)
-#define SERVO_PIN 2 // Servo pin <- TODO - Change with your data (If needed)
+#define CLK_PIN D5 // SCK <- TODO - Change with your data (If needed)
+#define DATA_PIN D7 // MOSI <- TODO - Change with your data (If needed)
+#define CS_PIN D8 // SS <- TODO - Change with your data (If needed)
+#define SERVO_PIN D4 // Servo pin <- TODO - Change with your data (If needed)
 
 AsyncWebServer server(80); // Web server
 WiFiClient client; // Client object
@@ -155,7 +155,7 @@ void formatCurrency(double value, char* output, const byte length) {
 		stringCopy(output, addThousandsSeparators(value * 100, 2, ',', '.'), length);
 }
 
-// Map a value between into a range
+// Map a value into a range
 int mapValue(double x, double inMin, double inMax, int outMin, int outMax) {
 	return (x - inMin) * (outMax - outMin) / (inMax - inMin) + outMin;
 }
