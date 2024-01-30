@@ -52,6 +52,8 @@ bool yearHighLowVisible = true; // Year high/low visible
 bool openPriceVisible = true; // Open price visible
 bool volumeVisible = true; // Volume visible
 bool bitcoinMinedVisible = true; // Total bitcoin mined visible
+bool newApiKey = false; // New API key
+bool newWiFiCredentials = false; // New WiFi credentials
 
 // Global message buffers shared by serial and scrolling functions
 char currentMessage[BUF_SIZE]; // Current message
@@ -75,6 +77,57 @@ void stringCopy(char* destination, const char* text, size_t length) {
 void printOnLedMatrix(const char* message, const byte stringLength, uint16_t messageStill = scrollPause) {
 	stringCopy(currentMessage, message, stringLength); // Copy the message
 	P.displayText(currentMessage, scrollAlign, scrollDelay, messageStill, scrollEffect, scrollEffect); // Print the message on the matrix
+}
+
+// Read data from the EEPROM
+bool readEEPROM(JsonDocument& doc) {
+	int eepromSize = EEPROM.length(); // Ottieni la dimensione della EEPROM
+  	for (int i = 0; i < eepromSize; i++) {
+		byte value = EEPROM.read(i); // Leggi ogni byte dalla EEPROM
+
+		/*
+		Serial.print("Indirizzo ");
+		Serial.print(i);
+		Serial.print(": ");
+		*/
+
+		// Stampa il valore in formato ASCII
+		// Verifica se il valore è stampabile in ASCII
+		if (value >= 32 && value <= 126) {
+			Serial.print((char)value); // Converti in carattere ASCII e stampa
+		} else {
+			Serial.print("."); // Stampa un punto per i valori non stampabili
+		}
+  	}
+
+    EepromStream eepromStream(0, 256);
+    if (!deserializeJson(doc, eepromStream))
+        return false; // Errore durante la lettura dalla EEPROM
+    return true; // Lettura riuscita
+}
+
+// Write data on the EEPROM
+bool writeEEPROM() {
+	if (!newApiKey && !newWiFiCredentials) // Check if the data needs to be saved
+		return true; // If not exit the function
+	EepromStream eepromStream(0, 256);
+	JsonDocument doc; // JSON object
+	if (!readEEPROM(doc)) // Read data from EEPROM
+		return false; // Error while reading from EEPROM
+	if (newApiKey) // Check if the API key needs to be updated
+		doc["apiKey"] = apiKey; // Update API key
+	if (newWiFiCredentials) { // Check if the WiFi credentials need to be updated
+		doc["ssid"] = wiFiSSID; // Update WiFi SSID
+		doc["password"] = wiFiPassword; // Update WiFi password
+	}
+	if (!serializeJson(doc, eepromStream))
+		return false; // Error while writing on EEPROM
+	if (!EEPROM.commit()) // Commit changes
+		return false; // Error while committing changes
+	newApiKey = false; // Mark as saved
+	newWiFiCredentials = false; // Mark as saved
+	Serial.println("Data saved on EEPROM");
+	return true; // Write success
 }
 
 // Format a currency - Inspired by the Currency library made by RobTillaart
@@ -213,6 +266,7 @@ bool connectToWiFi() {
 		delay(250);
 	}
 	Serial.println(" connected!");
+	writeEEPROM(); // Save the network credentials
 	return true; // Connection success
 }
 
@@ -225,7 +279,7 @@ void setupRoutes() {
 
 	// Connect to WiFi
 	server.on("/connect", HTTP_GET, [](AsyncWebServerRequest *request) {
-		if(!request->hasParam("ssid") || !request->hasParam("password")) { // Check required fields
+		if (!request->hasParam("ssid") || !request->hasParam("password")) { // Check required fields
 			request->send(400, "application/json", "{\"status\":\"KO\"}"); // Response
 			return;
 		}
@@ -239,6 +293,7 @@ void setupRoutes() {
 		char jsonResponse[20]; // JSON response
 		snprintf(jsonResponse, sizeof(jsonResponse), "{\"status\":\"%d\"}", wiFiConnectionStatus); // Create response
 		request->send(200, "application/json", jsonResponse); // Response
+		newWiFiCredentials = true; // New credentials
 	});
 
 	// Check the WiFi connection status
@@ -285,6 +340,7 @@ void setupRoutes() {
 		stringCopy(apiKey, request->getParam("apiKey")->value().c_str(), 35); // Save the API key
 		request->send(200, "application/json", "{\"status\":\"OK\"}"); // Send the JSON object
 		Serial.println("API key changed");
+		newApiKey = true; // New API key
 	});
 
 	// Get the values visibility settings
@@ -328,31 +384,6 @@ void setupRoutes() {
 		request->send(200, "application/json", "{\"status\":\"OK\"}");
 		Serial.println("Values settings changed");
 	});
-}
-
-// Write data on the EEPROM
-bool writeEEPROM() {
-	EepromStream eepromStream(0, 256);
-	JsonDocument doc; // JSON object
-	// if (apiKeyValid) // Check if the API key is valid
-		doc["apiKey"] = apiKey;
-	// if (wiFiCredentialsValid) { // Check if the WiFi credentials are valid
-		doc["ssid"] = wiFiSSID;
-		doc["password"] = wiFiPassword;
-	// }
-	if (!serializeJson(doc, eepromStream))
-		return false; // Error while writing on EEPROM
-	if (!EEPROM.commit()) // Commit changes
-		return false; // Error while committing changes
-	return true; // Write success
-}
-
-// Read data from the EEPROM
-bool readEEPROM(JsonDocument doc) {
-	EepromStream eepromStream(0, 256);
-	if (!deserializeJson(doc, eepromStream))
-		return false; // Error while reading from EEPROM
-	return true; // Read success
 }
 
 // Setting up the access point
