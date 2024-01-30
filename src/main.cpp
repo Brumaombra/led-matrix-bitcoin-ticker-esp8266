@@ -8,6 +8,7 @@
 #include <ESPAsyncWebServer.h>
 #include <EEPROM.h>
 #include <StreamUtils.h>
+#include <Servo.h>
 
 #define PRINT(s, x)
 #define PRINTS(x)
@@ -20,10 +21,12 @@
 #define CLK_PIN 14 // SCK <- TODO - Change with your data (If needed)
 #define DATA_PIN 13 // MOSI <- TODO - Change with your data (If needed)
 #define CS_PIN 15 // SS <- TODO - Change with your data (If needed)
+#define SERVO_PIN 2 // Servo pin <- TODO - Change with your data (If needed)
 
 AsyncWebServer server(80); // Web server
 WiFiClient client; // Client object
 HTTPClient http; // HTTP object
+Servo servoMotor; // Servo motor
 const char accessPointSSID[] = "Bitcoin-Ticker"; // Access point SSID
 char wiFiSSID[35] = ""; // Network SSID
 char wiFiPassword[70] = ""; // Network password
@@ -81,29 +84,14 @@ void printOnLedMatrix(const char* message, const byte stringLength, uint16_t mes
 
 // Read data from the EEPROM
 bool readEEPROM(JsonDocument& doc) {
-	int eepromSize = EEPROM.length(); // Ottieni la dimensione della EEPROM
-  	for (int i = 0; i < eepromSize; i++) {
-		byte value = EEPROM.read(i); // Leggi ogni byte dalla EEPROM
-
-		/*
-		Serial.print("Indirizzo ");
-		Serial.print(i);
-		Serial.print(": ");
-		*/
-
-		// Stampa il valore in formato ASCII
-		// Verifica se il valore è stampabile in ASCII
-		if (value >= 32 && value <= 126) {
-			Serial.print((char)value); // Converti in carattere ASCII e stampa
-		} else {
-			Serial.print("."); // Stampa un punto per i valori non stampabili
-		}
-  	}
-
     EepromStream eepromStream(0, 256);
-    if (!deserializeJson(doc, eepromStream))
-        return false; // Errore durante la lettura dalla EEPROM
-    return true; // Lettura riuscita
+	DeserializationError error = deserializeJson(doc, eepromStream);
+    if (error) { // Check for errors during deserialization
+        Serial.print("Error while reading the EEPROM: ");
+        Serial.println(error.c_str()); // Print the error message
+        return false;
+    }
+    return true; // Read success
 }
 
 // Write data on the EEPROM
@@ -113,7 +101,7 @@ bool writeEEPROM() {
 	EepromStream eepromStream(0, 256);
 	JsonDocument doc; // JSON object
 	if (!readEEPROM(doc)) // Read data from EEPROM
-		return false; // Error while reading from EEPROM
+		Serial.print("Error while reading the EEPROM, rewriting...");
 	if (newApiKey) // Check if the API key needs to be updated
 		doc["apiKey"] = apiKey; // Update API key
 	if (newWiFiCredentials) { // Check if the WiFi credentials need to be updated
@@ -167,6 +155,22 @@ void formatCurrency(double value, char* output, const byte length) {
 		stringCopy(output, addThousandsSeparators(value * 100, 2, ',', '.'), length);
 }
 
+// Map a value between into a range
+int mapValue(double x, double inMin, double inMax, int outMin, int outMax) {
+	return (x - inMin) * (outMax - outMin) / (inMax - inMin) + outMin;
+}
+
+// Move the servo motor
+void moveServoMotor(double percentage) {
+	const double maxPercentage = 10; // Max percentage
+	const double minPercentage = -10; // Min percentage
+	percentage = max(minPercentage, min(percentage, maxPercentage)); // Keep the value between min and max
+  	const int angle = mapValue(percentage, minPercentage, maxPercentage, 0, 180); // Map the value between 0 and 180
+  	servoMotor.write(angle); // Move the servo
+	Serial.print("Moving the servo to an angle of ");
+	Serial.println(angle);
+}
+
 // Create the scrolling message
 void createStockDataMessage(JsonDocument doc) {
 	Serial.println("Creating message...");
@@ -179,6 +183,7 @@ void createStockDataMessage(JsonDocument doc) {
 	// Price
 	tempVal = doc[0]["price"].as<double>();
 	tempVal2 = doc[0]["changesPercentage"].as<double>();
+	moveServoMotor(tempVal2); // Move the servo
 	formatCurrency(tempVal, tempString, MAX_NUMBER_SIZE); // Format number
 	formatCurrency(tempVal2, tempString2, MAX_NUMBER_SIZE); // Format number
 	snprintf(stripMessagePrice, BUF_SIZE, " BTC: $ %s (%s%%)", tempString, tempString2);
@@ -582,11 +587,17 @@ void setupEEPROM() {
 	Serial.println("EEPROM data loaded");
 }
 
+// Setup servo
+void setupServo() {
+	servoMotor.attach(SERVO_PIN); // Attach the servo
+}
+
 // Setup
 void setup() {
 	Serial.begin(9600); // Start serial
 	setupLittleFS(); // Setup LittleFS
 	setupEEPROM(); // Setup EEPROM
+	setupServo(); // Setup servo
 	setupServer(); // Setup server
 	manageWiFiConnection(); // Manage WiFi connection
 	setupWebClient(); // Setup web client
