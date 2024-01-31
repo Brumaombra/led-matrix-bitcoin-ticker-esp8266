@@ -8,7 +8,7 @@
 #include <ESPAsyncWebServer.h>
 #include <EEPROM.h>
 #include <StreamUtils.h>
-#include <Servo.h>
+// #include <Servo.h>
 
 #define PRINT(s, x)
 #define PRINTS(x)
@@ -21,12 +21,12 @@
 #define CLK_PIN D5 // SCK <- TODO - Change with your data (If needed)
 #define DATA_PIN D7 // MOSI <- TODO - Change with your data (If needed)
 #define CS_PIN D8 // SS <- TODO - Change with your data (If needed)
-#define SERVO_PIN D4 // Servo pin <- TODO - Change with your data (If needed)
+// #define SERVO_PIN D4 // Servo pin <- TODO - Change with your data (If needed)
 
 AsyncWebServer server(80); // Web server
 WiFiClient client; // Client object
 HTTPClient http; // HTTP object
-Servo servoMotor; // Servo motor
+// Servo servoMotor; // Servo motor
 const char accessPointSSID[] = "Bitcoin-Ticker"; // Access point SSID
 char wiFiSSID[35] = ""; // Network SSID
 char wiFiPassword[70] = ""; // Network password
@@ -101,7 +101,7 @@ bool writeEEPROM() {
 	EepromStream eepromStream(0, 256);
 	JsonDocument doc; // JSON object
 	if (!readEEPROM(doc)) // Read data from EEPROM
-		Serial.print("Error while reading the EEPROM, rewriting...");
+		Serial.println("Overwriting the saved data...");
 	if (newApiKey) // Check if the API key needs to be updated
 		doc["apiKey"] = apiKey; // Update API key
 	if (newWiFiCredentials) { // Check if the WiFi credentials need to be updated
@@ -155,12 +155,12 @@ void formatCurrency(double value, char* output, const byte length) {
 		stringCopy(output, addThousandsSeparators(value * 100, 2, ',', '.'), length);
 }
 
-// Map a value into a range
+/* Map a value into a range
 int mapValue(double x, double inMin, double inMax, int outMin, int outMax) {
 	return (x - inMin) * (outMax - outMin) / (inMax - inMin) + outMin;
-}
+} */
 
-// Move the servo motor
+/* Move the servo motor
 void moveServoMotor(double percentage) {
 	const double maxPercentage = 10; // Max percentage
 	const double minPercentage = -10; // Min percentage
@@ -169,7 +169,7 @@ void moveServoMotor(double percentage) {
   	servoMotor.write(angle); // Move the servo
 	Serial.print("Moving the servo to an angle of ");
 	Serial.println(angle);
-}
+} */
 
 // Create the scrolling message
 void createStockDataMessage(JsonDocument doc) {
@@ -183,7 +183,7 @@ void createStockDataMessage(JsonDocument doc) {
 	// Price
 	tempVal = doc[0]["price"].as<double>();
 	tempVal2 = doc[0]["changesPercentage"].as<double>();
-	moveServoMotor(tempVal2); // Move the servo
+	// moveServoMotor(tempVal2); // Move the servo
 	formatCurrency(tempVal, tempString, MAX_NUMBER_SIZE); // Format number
 	formatCurrency(tempVal2, tempString2, MAX_NUMBER_SIZE); // Format number
 	snprintf(stripMessagePrice, BUF_SIZE, " BTC: $ %s (%s%%)", tempString, tempString2);
@@ -572,12 +572,8 @@ void setupServer() {
 void setupEEPROM() {
 	EEPROM.begin(256); // Start the EEPROM
 	JsonDocument doc; // JSON object
-	if (!readEEPROM(doc)) { // Read the EEPROM
-		Serial.println("Error while reading the EEPROM");
+	if (!readEEPROM(doc)) // Read the EEPROM
 		return; // If error, exit the function
-	}
-
-	// Preload the data if present
 	if (doc.containsKey("apiKey") && !doc["apiKey"].isNull()) // Check if the API key is present
 		stringCopy(apiKey, doc["apiKey"], sizeof(apiKey));
 	if (doc.containsKey("ssid") && !doc["ssid"].isNull()) // Check if the WiFi SSID is present
@@ -587,17 +583,17 @@ void setupEEPROM() {
 	Serial.println("EEPROM data loaded");
 }
 
-// Setup servo
+/* Setup servo
 void setupServo() {
 	servoMotor.attach(SERVO_PIN); // Attach the servo
-}
+} */
 
 // Setup
 void setup() {
 	Serial.begin(9600); // Start serial
 	setupLittleFS(); // Setup LittleFS
 	setupEEPROM(); // Setup EEPROM
-	setupServo(); // Setup servo
+	// setupServo(); // Setup servo
 	setupServer(); // Setup server
 	manageWiFiConnection(); // Manage WiFi connection
 	setupWebClient(); // Setup web client
