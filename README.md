@@ -7,7 +7,7 @@ This project transforms an ESP8266 microcontroller and a MAX7219 LED matrix into
 ## The Web Page
 Control the settings using the extremely user-friendly webpage!
 
-![Web page screenshot](images/web_page_screenshots.jpg)
+![Web page screenshot](docs/web_page_screenshots.jpg)
 
 ## Features
 - **Real-Time Bitcoin Information:** Displays a variety of helpful, up-to-date Bitcoin data, including the current price, daily change, yearly high, yearly low, opening price, and much more!
@@ -22,7 +22,7 @@ Control the settings using the extremely user-friendly webpage!
 
 ## Software Dependencies
 - `PlatformIO` extension for Visual Studio Code (as the IDE)
-- Libraries: `MD_Parola.h`, `MD_MAX72xx.h`, `ESP8266WiFi.h`, `ESP8266HTTPClient.h`, `ArduinoJson.h`, `WiFiClientSecure.h`, `LittleFS.h`, `ESPAsyncWebServer.h`
+- Libraries: `MD_Parola.h`, `MD_MAX72xx.h`, `ESP8266WiFi.h`, `ESP8266HTTPClient.h`, `ArduinoJson.h`, `WiFiClientSecure.h`, `LittleFS.h`, `ESPAsyncWebServer.h`, `EEPROM.h`, `StreamUtils.h`
 
 ## Configuration and Usage
 1. Connect the LED Matrix to the ESP8266 using jumper wires.
@@ -50,7 +50,7 @@ Special thanks to all these amazing people and their contributions: ❤️
 - [`RobTillaart`](https://github.com/RobTillaart) for the inspiration of the currency formatter function in his [`currency`](https://github.com/RobTillaart/Currency) library.
 - [`MajicDesigns`](https://github.com/MajicDesigns) for the [`MD_Parola`](https://github.com/MajicDesigns/MD_Parola) and [`MD_MAX72XX`](https://github.com/MajicDesigns/MD_MAX72XX) libraries.
 - [`esp8266`](https://github.com/esp8266) for the `ESP8266WiFi`, `ESP8266HTTPClient`, `WiFiClientSecure`, and `LittleFS` libraries ([repository](https://github.com/esp8266/Arduino)).
-- [`bblanchon`](https://github.com/bblanchon) for the [`ArduinoJson`](https://github.com/bblanchon/ArduinoJson) library.
+- [`bblanchon`](https://github.com/bblanchon) for the [`ArduinoJson`](https://github.com/bblanchon/ArduinoJson) and [`StreamUtils`](https://github.com/bblanchon/ArduinoStreamUtils) libraries.
 - [`me-no-dev`](https://github.com/me-no-dev) for the [`ESPAsyncWebServer`](https://github.com/me-no-dev/ESPAsyncWebServer) library.
 
 ## Author
