@@ -8,6 +8,7 @@
 #include <ESPAsyncWebServer.h>
 #include <EEPROM.h>
 #include <StreamUtils.h>
+#include <Utils.h>
 
 #define PRINT(s, x)
 #define PRINTS(x)
@@ -52,8 +53,7 @@ bool yearHighLowVisible = true; // Year high/low visible
 bool openPriceVisible = true; // Open price visible
 bool volumeVisible = true; // Volume visible
 bool bitcoinMinedVisible = true; // Total bitcoin mined visible
-bool newApiKey = false; // New API key
-bool newWiFiCredentials = false; // New WiFi credentials
+bool newDataToSaveToEEPROM = false; // If there is new data to save
 
 // Global message buffers shared by serial and scrolling functions
 char currentMessage[BUF_SIZE]; // Current message
@@ -66,12 +66,13 @@ char stripMessageOpen[BUF_SIZE]; // Open
 char stripMessageVolume[BUF_SIZE]; // Volume
 char stripMessageBitcoinMined[BUF_SIZE]; // Total Bitcoin mined
 
-// Custom string copy function
+/* Custom string copy function
 void stringCopy(char* destination, const char* text, size_t length) {
 	if (length <= 0) return; // If length is 0, do nothing
     strncpy(destination, text, length - 1); // Copy the string
     destination[length - 1] = '\0'; // Add the terminating character
 }
+*/
 
 // Print the message on the matrix
 void printOnLedMatrix(const char* message, const byte stringLength, uint16_t messageStill = scrollPause) {
@@ -93,29 +94,44 @@ bool readEEPROM(JsonDocument& doc) {
 
 // Write data on the EEPROM
 bool writeEEPROM() {
-	if (!newApiKey && !newWiFiCredentials) // Check if the data needs to be saved
+	if (!newDataToSaveToEEPROM) // Check if the data needs to be saved
 		return true; // If not exit the function
 	EepromStream eepromStream(0, 256);
 	JsonDocument doc; // JSON object
 	if (!readEEPROM(doc)) // Read data from EEPROM
 		Serial.println("Overwriting the saved data...");
-	if (newApiKey) // Check if the API key needs to be updated
+	if (doc["apiKey"] != apiKey && apiKey[0] != '\0') // Check if the API key is the same
 		doc["apiKey"] = apiKey; // Update API key
-	if (newWiFiCredentials) { // Check if the WiFi credentials need to be updated
+	if (doc["ssid"] != wiFiSSID && wiFiSSID[0] != '\0') // Check if the WiFi SSID is the same
 		doc["ssid"] = wiFiSSID; // Update WiFi SSID
+	if (doc["password"] != wiFiPassword) // Check if the WiFi password is the same (Password can be empty)
 		doc["password"] = wiFiPassword; // Update WiFi password
-	}
+	if (doc["currentPriceVisible"] != currentPriceVisible) // Check if the current price visibility is the same
+		doc["currentPriceVisible"] = currentPriceVisible; // Update current price visibility
+	if (doc["priceChangeVisible"] != priceChangeVisible) // Check if the price change visibility is the same
+		doc["priceChangeVisible"] = priceChangeVisible; // Update price change visibility
+	if (doc["marketCapVisible"] != marketCapVisible) // Check if the market cap visibility is the same
+		doc["marketCapVisible"] = marketCapVisible; // Update market cap visibility
+	if (doc["dailyHighLowVisible"] != dailyHighLowVisible) // Check if the daily high/low visibility is the same
+		doc["dailyHighLowVisible"] = dailyHighLowVisible; // Update daily high/low visibility
+	if (doc["yearHighLowVisible"] != yearHighLowVisible) // Check if the year high/low visibility is the same
+		doc["yearHighLowVisible"] = yearHighLowVisible; // Update year high/low visibility
+	if (doc["openPriceVisible"] != openPriceVisible) // Check if the open price visibility is the same
+		doc["openPriceVisible"] = openPriceVisible; // Update open price visibility
+	if (doc["volumeVisible"] != volumeVisible) // Check if the volume visibility is the same
+		doc["volumeVisible"] = volumeVisible; // Update volume visibility
+	if (doc["bitcoinMinedVisible"] != bitcoinMinedVisible) // Check if the total bitcoin mined visibility is the same
+		doc["bitcoinMinedVisible"] = bitcoinMinedVisible; // Update total bitcoin mined visibility
 	if (!serializeJson(doc, eepromStream))
 		return false; // Error while writing on EEPROM
 	if (!EEPROM.commit()) // Commit changes
 		return false; // Error while committing changes
-	newApiKey = false; // Mark as saved
-	newWiFiCredentials = false; // Mark as saved
+	newDataToSaveToEEPROM = false; // Mark as saved
 	Serial.println("Data saved on EEPROM");
 	return true; // Write success
 }
 
-// Format a currency - Inspired by the Currency library made by RobTillaart
+/* Format a currency - Inspired by the Currency library made by RobTillaart
 char* addThousandsSeparators(double value, int decimals, char decimalSeparator, char thousandSeparator, char symbol = ' ') {
 	static char tmp[30]; // Temporary buffer to store the formatted string
 	uint8_t index = 0; // Index for placing characters in tmp
@@ -143,6 +159,7 @@ char* addThousandsSeparators(double value, int decimals, char decimalSeparator, 
 	}
 	return tmp; // Return the pointer to the formatted string
 }
+*/
 
 // Format currency
 void formatCurrency(double value, char* output, const byte length) {
@@ -278,7 +295,7 @@ void setupRoutes() {
 		char jsonResponse[20]; // JSON response
 		snprintf(jsonResponse, sizeof(jsonResponse), "{\"status\":\"%d\"}", wiFiConnectionStatus); // Create response
 		request->send(200, "application/json", jsonResponse); // Response
-		newWiFiCredentials = true; // New credentials
+		newDataToSaveToEEPROM = true; // New credentials
 	});
 
 	// Check the WiFi connection status
@@ -325,7 +342,7 @@ void setupRoutes() {
 		stringCopy(apiKey, request->getParam("apiKey")->value().c_str(), 35); // Save the API key
 		request->send(200, "application/json", "{\"status\":\"OK\"}"); // Send the JSON object
 		Serial.println("API key changed");
-		newApiKey = true; // New API key
+		newDataToSaveToEEPROM = true; // New API key
 	});
 
 	// Get the values visibility settings
