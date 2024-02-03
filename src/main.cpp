@@ -21,6 +21,7 @@
 #define CLK_PIN D5 // SCK <- TODO - Change with your data (If needed)
 #define DATA_PIN D7 // MOSI <- TODO - Change with your data (If needed)
 #define CS_PIN D8 // SS <- TODO - Change with your data (If needed)
+#define EEPROM_SIZE 512 // EEPROM size
 
 AsyncWebServer server(80); // Web server
 WiFiClient client; // Client object
@@ -53,6 +54,7 @@ bool yearHighLowVisible = true; // Year high/low visible
 bool openPriceVisible = true; // Open price visible
 bool volumeVisible = true; // Volume visible
 bool bitcoinMinedVisible = true; // Total bitcoin mined visible
+uint16_t priceScrollPause = 30000; // Scroll pause for the current price
 bool newDataToSaveToEEPROM = false; // If there is new data to save
 
 // Global message buffers shared by serial and scrolling functions
@@ -66,14 +68,6 @@ char stripMessageOpen[BUF_SIZE]; // Open
 char stripMessageVolume[BUF_SIZE]; // Volume
 char stripMessageBitcoinMined[BUF_SIZE]; // Total Bitcoin mined
 
-/* Custom string copy function
-void stringCopy(char* destination, const char* text, size_t length) {
-	if (length <= 0) return; // If length is 0, do nothing
-    strncpy(destination, text, length - 1); // Copy the string
-    destination[length - 1] = '\0'; // Add the terminating character
-}
-*/
-
 // Print the message on the matrix
 void printOnLedMatrix(const char* message, const byte stringLength, uint16_t messageStill = scrollPause) {
 	stringCopy(currentMessage, message, stringLength); // Copy the message
@@ -82,7 +76,7 @@ void printOnLedMatrix(const char* message, const byte stringLength, uint16_t mes
 
 // Read data from the EEPROM
 bool readEEPROM(JsonDocument& doc) {
-    EepromStream eepromStream(0, 256);
+    EepromStream eepromStream(0, EEPROM_SIZE);
 	DeserializationError error = deserializeJson(doc, eepromStream);
     if (error) { // Check for errors during deserialization
         Serial.print("Error while reading the EEPROM: ");
@@ -96,7 +90,7 @@ bool readEEPROM(JsonDocument& doc) {
 bool writeEEPROM() {
 	if (!newDataToSaveToEEPROM) // Check if the data needs to be saved
 		return true; // If not exit the function
-	EepromStream eepromStream(0, 256);
+	EepromStream eepromStream(0, EEPROM_SIZE);
 	JsonDocument doc; // JSON object
 	if (!readEEPROM(doc)) // Read data from EEPROM
 		Serial.println("Overwriting the saved data...");
@@ -122,6 +116,10 @@ bool writeEEPROM() {
 		doc["volumeVisible"] = volumeVisible; // Update volume visibility
 	if (doc["bitcoinMinedVisible"] != bitcoinMinedVisible) // Check if the total bitcoin mined visibility is the same
 		doc["bitcoinMinedVisible"] = bitcoinMinedVisible; // Update total bitcoin mined visibility
+	if (doc["formatType"].as<formatNum>() != formatType) // Check if the formatting type is the same
+		doc["formatType"] = formatType; // Update formatting type
+	if (doc["priceScrollPause"].as<uint16_t>() != priceScrollPause) // Check if the scroll pause is the same
+		doc["priceScrollPause"] = priceScrollPause; // Update scroll pause
 	if (!serializeJson(doc, eepromStream))
 		return false; // Error while writing on EEPROM
 	if (!EEPROM.commit()) // Commit changes
@@ -130,36 +128,6 @@ bool writeEEPROM() {
 	Serial.println("Data saved on EEPROM");
 	return true; // Write success
 }
-
-/* Format a currency - Inspired by the Currency library made by RobTillaart
-char* addThousandsSeparators(double value, int decimals, char decimalSeparator, char thousandSeparator, char symbol = ' ') {
-	static char tmp[30]; // Temporary buffer to store the formatted string
-	uint8_t index = 0; // Index for placing characters in tmp
-	int64_t v = (int64_t)value; // Convert the value to an integer
-	bool negative = v < 0; // Flag for negative numbers
-	if (negative) v = -v; // Make v positive for processing
-	int pos = -decimals; // Tracks the position relative to the decimal point
-	while ((pos < 1) || (v > 0)) { // Loop until we've processed all digits
-		if ((pos == 0) && (decimals > 0)) tmp[index++] = decimalSeparator; // Add decimal separator
-		if ((pos > 0) && (pos % 3 == 0)) tmp[index++] = thousandSeparator; // Add thousand separator
-		pos++;
-		tmp[index++] = (v % 10) + '0'; // Extract and store the last digit of v
-		v /= 10; // Remove the last digit from v
-	}
-	if (negative) tmp[index++] = '-'; // Add negative sign if necessary
-	if (symbol != ' ') {
-		tmp[index++] = ' '; // Add space
-		tmp[index++] = symbol; // Add the currency symbol if there is
-	}
-	tmp[index] = '\0'; // Null-terminate the string
-	for (uint8_t i = 0, j = index - 1; i < index / 2; i++, j--) { // Reverse the string since it was built backwards
-		char c = tmp[i];
-		tmp[i] = tmp[j];
-		tmp[j] = c;
-	}
-	return tmp; // Return the pointer to the formatted string
-}
-*/
 
 // Format currency
 void formatCurrency(double value, char* output, const byte length) {
@@ -383,8 +351,12 @@ void setupRoutes() {
 			bitcoinMinedVisible = request->getParam("bitcoinMined")->value() == "Y";
 		if (request->hasParam("formatType"))
 			formatType = request->getParam("formatType")->value() == "US" ? FORMAT_US : FORMAT_EU;
+		if (request->hasParam("priceScrollPause"))
+			priceScrollPause = request->getParam("priceScrollPause")->value().toInt();
 		request->send(200, "application/json", "{\"status\":\"OK\"}");
 		Serial.println("Values settings changed");
+		newDataToSaveToEEPROM = true; // New settings
+		writeEEPROM(); // Save the settings
 	});
 }
 
@@ -418,10 +390,8 @@ bool manageWiFiConnection() {
 			if (!accessPointEnabled) // Check if disabled
 				disableAccessPoint = false; // Mark as disabled
 		}
-
 		if (WiFi.status() == WL_CONNECTED) // Check if connected to WiFi
 			return true; // If connected exit the function
-			
 		if (wiFiSSID[0] != '\0' && wiFiPassword[0] != '\0') { // Check if credentials are already present
 			if (connectToWiFi()) // Connecting to WiFi
 				return true; // Connection success
@@ -483,7 +453,7 @@ void manageLedMatrix() {
 		case PRINT_PRICE:
 			Serial.println("Section: PRICE");
 			if (currentPriceVisible) // Check if current price is visible
-				printOnLedMatrix(stripMessagePrice, BUF_SIZE, 30000); // Print the message on the matrix
+				printOnLedMatrix(stripMessagePrice, BUF_SIZE, priceScrollPause); // Print the message on the matrix
 			switchText = PRINT_CHANGE;
 			break;
 
@@ -565,18 +535,43 @@ void setupServer() {
 	server.begin(); // Start the server
 }
 
-// Setup EEPROM
-void setupEEPROM() {
-	EEPROM.begin(256); // Start the EEPROM
-	JsonDocument doc; // JSON object
-	if (!readEEPROM(doc)) // Read the EEPROM
-		return; // If error, exit the function
+// read the already saved settings from the EEPROM
+void readSavedSetting(JsonDocument doc) {
 	if (doc.containsKey("apiKey") && !doc["apiKey"].isNull()) // Check if the API key is present
 		stringCopy(apiKey, doc["apiKey"], sizeof(apiKey));
 	if (doc.containsKey("ssid") && !doc["ssid"].isNull()) // Check if the WiFi SSID is present
 		stringCopy(wiFiSSID, doc["ssid"], sizeof(wiFiSSID));
 	if (doc.containsKey("password") && !doc["password"].isNull()) // Check if the WiFi password is present
 		stringCopy(wiFiPassword, doc["password"], sizeof(wiFiPassword));
+	if (doc.containsKey("currentPrice")) // Check if the current price is present
+		currentPriceVisible = doc["currentPrice"].as<bool>();
+	if (doc.containsKey("priceChange")) // Check if the price change is present
+		priceChangeVisible = doc["priceChange"].as<bool>();
+	if (doc.containsKey("marketCap")) // Check if the market cap is present
+		marketCapVisible = doc["marketCap"].as<bool>();
+	if (doc.containsKey("dailyHighLow")) // Check if the daily high/low is present
+		dailyHighLowVisible = doc["dailyHighLow"].as<bool>();
+	if (doc.containsKey("yearHighLow")) // Check if the year high/low is present
+		yearHighLowVisible = doc["yearHighLow"].as<bool>();
+	if (doc.containsKey("openPrice")) // Check if the open price is present
+		openPriceVisible = doc["openPrice"].as<bool>();
+	if (doc.containsKey("volume")) // Check if the volume is present
+		volumeVisible = doc["volume"].as<bool>();
+	if (doc.containsKey("bitcoinMined")) // Check if the bitcoin mined is present
+		bitcoinMinedVisible = doc["bitcoinMined"].as<bool>();
+	if (doc.containsKey("formatType") && !doc["formatType"].isNull()) // Check if the format type is present
+		formatType = doc["formatType"].as<formatNum>();
+	if (doc.containsKey("priceScrollPause") && !doc["priceScrollPause"].isNull()) // Check if the price scroll pause is present
+		priceScrollPause = doc["priceScrollPause"].as<uint16_t>();
+}
+
+// Setup EEPROM
+void setupEEPROM() {
+	EEPROM.begin(EEPROM_SIZE); // Start the EEPROM
+	JsonDocument doc; // JSON object
+	if (!readEEPROM(doc)) // Read the EEPROM
+		return; // If error, exit the function
+	readSavedSetting(doc); // Read the saved settings
 	Serial.println("EEPROM data loaded");
 }
 
