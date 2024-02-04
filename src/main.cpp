@@ -8,6 +8,7 @@
 #include <ESPAsyncWebServer.h>
 #include <EEPROM.h>
 #include <StreamUtils.h>
+#include <Servo.h>
 #include <Utils.h>
 
 #define PRINT(s, x)
@@ -22,10 +23,12 @@
 #define DATA_PIN D7 // MOSI <- TODO - Change with your data (If needed)
 #define CS_PIN D8 // SS <- TODO - Change with your data (If needed)
 #define EEPROM_SIZE 512 // EEPROM size
+#define SERVO_PIN D1 // Servo pin
 
 AsyncWebServer server(80); // Web server
 WiFiClient client; // Client object
 HTTPClient http; // HTTP object
+Servo servoMotor; // Servo object
 const char accessPointSSID[] = "Bitcoin-Ticker"; // Access point SSID
 char wiFiSSID[35] = ""; // Network SSID
 char wiFiPassword[70] = ""; // Network password
@@ -37,6 +40,7 @@ connectionStatus wiFiConnectionStatus = WIFI_KO; // Connection status
 unsigned long currentMillis; // Current time
 unsigned long timestampStockData = 0; // Timestamp stock data
 unsigned long timestampWiFiConnection = 0; // Timestamp WiFi connection
+unsigned long detachServoTimestamp = 0; // Timestamp for detaching the servo motor
 enum formatNum { FORMAT_US = 1, FORMAT_EU = 2 }; // Numeric formatting type
 formatNum formatType = FORMAT_US; // Current numeric formatting type
 enum printType { PRINT_PRICE = 0, PRINT_CHANGE = 1, PRINT_MARKET_CAP = 2, PRINT_DAILY_HIGH_LOW = 3, PRINT_YEAR_HIGH_LOW = 4, PRINT_OPEN = 5, PRINT_VOLUME = 6, PRINT_BITCOIN_MINED = 7 }; // Print type
@@ -55,6 +59,7 @@ bool openPriceVisible = true; // Open price visible
 bool volumeVisible = true; // Volume visible
 bool bitcoinMinedVisible = true; // Total bitcoin mined visible
 uint16_t priceScrollPause = 30000; // Scroll pause for the current price
+bool servoMotorEnabled = true; // If servo motor enabled
 bool newDataToSaveToEEPROM = false; // If there is new data to save
 
 // Global message buffers shared by serial and scrolling functions
@@ -137,6 +142,30 @@ void formatCurrency(double value, char* output, const byte length) {
 		stringCopy(output, addThousandsSeparators(value * 100, 2, ',', '.'), length);
 }
 
+// Move the servo motor
+void moveServoMotor(double percentage) {
+	servoMotor.attach(SERVO_PIN); // Attach the servo motor
+	const double maxPercentage = 10; // Max percentage
+	const double minPercentage = -10; // Min percentage
+	percentage = max(minPercentage, min(percentage, maxPercentage)); // Keep the value between min and max
+  	const int angle = mapValue(percentage, minPercentage, maxPercentage, 0, 180); // Map the value between 0 and 180
+  	servoMotor.write(angle); // Move the servo
+	Serial.print("Moving the servo to an angle of ");
+	Serial.println(angle);
+	detachServoTimestamp = millis(); // Save the timestamp
+}
+
+// Detach the servo motor
+void detachServo() {
+	if (detachServoTimestamp == 0) // Check if the servo needs to be detached
+		return; // If not exit the function
+	if (millis() - detachServoTimestamp > 1000) { // Check if it's time to detach the servo
+		Serial.println("Detaching the servo...");
+		servoMotor.detach(); // Detach the servo
+		detachServoTimestamp = 0; // Reset the timestamp
+	}
+}
+
 // Create the scrolling message
 void createStockDataMessage(JsonDocument doc) {
 	Serial.println("Creating message...");
@@ -149,6 +178,8 @@ void createStockDataMessage(JsonDocument doc) {
 	// Price
 	tempVal = doc[0]["price"].as<double>();
 	tempVal2 = doc[0]["changesPercentage"].as<double>();
+	if (servoMotorEnabled) // Check if the servo motor is enabled
+		moveServoMotor(tempVal2); // Move the servo
 	formatCurrency(tempVal, tempString, MAX_NUMBER_SIZE); // Format number
 	formatCurrency(tempVal2, tempString2, MAX_NUMBER_SIZE); // Format number
 	snprintf(stripMessagePrice, BUF_SIZE, " BTC: $ %s (%s%%)", tempString, tempString2);
@@ -441,6 +472,7 @@ bool callAPI() {
 
 // Manage the LED matrix
 void manageLedMatrix() {
+	detachServo(); // Check if I need to detach the servo
 	if (!P.displayAnimate())
 		return; // If scrolling, exit the function
 	if (!checkWifiConnection()) // Check if connected to WiFi

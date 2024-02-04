@@ -33,3 +33,8 @@ char* addThousandsSeparators(double value, int decimals, char decimalSeparator, 
 	}
 	return tmp; // Return the pointer to the formatted string
 }
+
+// Map a value between into a range
+int mapValue(double x, double inMin, double inMax, int outMin, int outMax) {
+	return (x - inMin) * (outMax - outMin) / (inMax - inMin) + outMin;
+}
