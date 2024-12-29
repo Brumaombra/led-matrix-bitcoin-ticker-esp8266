@@ -11,11 +11,20 @@ onMounted(() => {
 </script>
 
 <template>
-    <header>
-        <img alt="Vue logo" class="logo" src="./assets/bitcoin.svg" width="125" height="125" />
-    </header>
-
-    <main>
-        <h1>Loading...</h1>
-    </main>
+    <div class="flex items-center justify-center min-h-screen bg-gray-800">
+        <div class="text-center">
+            <img src="/bitcoin.svg" alt="Bitcoin logo" class="animate-spin h-24 w-24 mx-auto mb-4">
+            <h1 class="text-3xl font-bold text-white">Loading...</h1>
+        </div>
+    </div>
 </template>
+
+<style scoped>
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+.animate-spin {
+    animation: spin 1s linear infinite;
+}
+</style>

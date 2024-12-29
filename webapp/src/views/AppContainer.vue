@@ -5,12 +5,12 @@ import Navbar from '@/components/Navbar.vue';
 
 <template>
 	<!-- Root container -->
-	<div class="root-container">
+	<div class="root-container bg-gray-100">
 		<!-- Top Navbar -->
 		<Navbar />
 
 		<!-- Scrollable content -->
-		<div class="main-content">
+		<div class="pt-0 lg:pt-12">
 			<RouterView />
 		</div>
 	</div>
@@ -22,12 +22,5 @@ import Navbar from '@/components/Navbar.vue';
 	flex-direction: column;
 	height: 100vh;
 	overflow: hidden;
-}
-.main-content {
-	flex: 1;
-	overflow-y: auto;
-	padding: 0;
-	margin-top: 60px;
-	margin-bottom: 63px;
 }
 </style>
