@@ -14,6 +14,10 @@ const router = createRouter({
 
         // Auth children routes
         children: [{
+            path: 'settings',
+            name: 'settings',
+            component: () => import('@/views/Settings.vue')
+        }, {
             path: 'wifi',
             name: 'wifi',
             component: () => import('@/views/WiFi.vue')
@@ -21,10 +25,6 @@ const router = createRouter({
             path: 'apiKey',
             name: 'apiKey',
             component: () => import('@/views/ApiKey.vue')
-        }, {
-            path: 'settings',
-            name: 'settings',
-            component: () => import('@/views/Settings.vue')
         }]
     }]
 });

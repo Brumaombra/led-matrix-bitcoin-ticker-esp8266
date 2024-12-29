@@ -5,7 +5,7 @@ import { navTo } from '@/utils/utils.js';
 // On component mounted
 onMounted(() => {
     setTimeout(() => {
-        navTo('/app');
+        navTo('/app/settings');
     }, 2000);
 });
 </script>
