@@ -2,15 +2,20 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <ESP8266HTTPClient.h>
+#include <WiFiClientSecure.h>
 #include "../config/config.h"
 #include "../utils/utils.h"
 #include "../storage/storage.h"
 #include "../matrix/matrix.h"
 
+// HTTPS client
+WiFiClientSecure clientSecure;
 HTTPClient http; // HTTP object
+const char apiUrl[] = "https://financialmodelingprep.com/stable/quote?symbol=BTCUSD&apikey="; // API URL
 
 // Setup the web client
 void setupWebClient() {
+    clientSecure.setInsecure(); // Disable SSL certificate verification
     http.setTimeout(5000); // Set timeout
 }
 
@@ -74,12 +79,13 @@ void createStockDataMessage(JsonDocument doc) {
 
 // Getting Bitcoin data
 bool getStockDataAPI() {
-    char url[100]; // URL modificato per utilizzare HTTP
-    sprintf(url, "http://financialmodelingprep.com/api/v3/quote/BTCUSD?apikey=%s", apiKey);
-    http.begin(client, url); // Inizia una chiamata HTTP all'URL specificato
-    if (http.GET() == HTTP_CODE_OK) {
-        Serial.println("Response body: " + http.getString());
-        JsonDocument doc; // Create the JSON object
+	char url[150]; // Full URL
+	sprintf(url, "%s%s", apiUrl, apiKey); // Add the API key to the URL
+	Serial.println(url); // Print the URL
+	http.begin(clientSecure, url); // Start the connection with HTTPS client
+	if (http.GET() == HTTP_CODE_OK) {
+		Serial.println("Response body: " + http.getString());
+		JsonDocument doc; // Create the JSON object
 		DeserializationError error = deserializeJson(doc, http.getString()); // Deserialize the JSON object
 		if (error) { // Error while parsing the JSON
 			Serial.printf("Error while parsing the JSON: %s\n", error.c_str());
@@ -89,11 +95,11 @@ bool getStockDataAPI() {
 		createStockDataMessage(doc); // Create the scrolling message
 		http.end(); // Close connection
 		return true;
-    } else {
-        Serial.printf("HTTP call error: %d\n", http.GET());
-        http.end();
-        return false;
-    }
+	} else {
+		Serial.printf("HTTP call error: %d\n", http.GET());
+		http.end();
+		return false;
+	}
 }
 
 // Call the API to get the data
