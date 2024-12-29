@@ -1,0 +1,126 @@
+body {
+    padding-top: 63px;
+}
+
+/* Hidden */
+.hidden {
+    display: none;
+}
+.show {
+    display: block !important;
+}
+
+/* Buttons */
+.btn {
+    font-weight: 700;
+}
+
+/* navbar */
+.navbar {
+    border-bottom: 2px solid #dfe4ea;
+}
+.navbar-brand p {
+    margin-bottom: 0;
+    font-weight: 500;
+}
+.navbarLogo {
+    height: 35px;
+    width: 35px;
+}
+.nav-link {
+    cursor: pointer;
+}
+.navbar-nav .nav-link.active {
+    font-weight: 500;
+}
+.navbar-toggler:focus {
+    box-shadow: none;
+}
+
+/* Centered container */
+.center-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Form */
+.form-select,
+.form-control,
+.btn {
+    height: 45px;
+    border-radius: 10px;
+}
+.form-container {
+    width: 350px;
+}
+.btn-submit {
+    width: 100%;
+}
+.network-logo {
+    text-align: center;
+}
+.network-logo i {
+    font-size: 80px;
+}
+
+/* Button refresh */
+.btn-refresh {
+    width: 50px;
+}
+
+/* Modal */
+.modal-content {
+    border: none;
+    border-radius: 10px;
+}
+.modal-body p {
+    margin-bottom: 0;
+}
+.modal-title {
+    font-weight: 700;
+}
+.modal-backdrop {
+    --bs-backdrop-opacity: 0.35;
+}
+
+/* Busy full-screen */
+.fullscreen-loader {
+    /* display: none; */
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(255, 255, 255, 0.7);
+    z-index: 9999;
+}
+.fullscreen-loader .spinner-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    color: rgb(13, 110, 253);
+}
+.fullscreen-loader .spinner-container .spinner-border {
+    width: 3rem;
+    height: 3rem;
+}
+
+/* Icone */
+.success-icon {
+    color: #198754;
+}
+.error-icon {
+    color: #dc3545;
+}
+
+/* Credits */
+.credits {
+    position: absolute;
+    margin-bottom: 0;
+    bottom: 10px;
+    left: 10px;
+    font-size: 13px;
+    font-weight: 100;
+}
