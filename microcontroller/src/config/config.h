@@ -26,7 +26,6 @@ extern char stripMessageDailyHighLow[BUF_SIZE]; // Daily High/Low
 extern char stripMessageYearHighLow[BUF_SIZE]; // Year High/Low
 extern char stripMessageOpen[BUF_SIZE]; // Open
 extern char stripMessageVolume[BUF_SIZE]; // Volume
-extern char stripMessageBitcoinMined[BUF_SIZE]; // Total Bitcoin mined
 
 extern AsyncWebServer server;
 extern WiFiClient client;
@@ -41,7 +40,7 @@ extern connectionStatus wiFiConnectionStatus;
 extern unsigned long currentMillis;
 extern unsigned long timestampStockData;
 extern unsigned long timestampWiFiConnection;
-enum printType { PRINT_PRICE = 0, PRINT_CHANGE = 1, PRINT_MARKET_CAP = 2, PRINT_DAILY_HIGH_LOW = 3, PRINT_YEAR_HIGH_LOW = 4, PRINT_OPEN = 5, PRINT_VOLUME = 6, PRINT_BITCOIN_MINED = 7 };
+enum printType { PRINT_PRICE = 0, PRINT_CHANGE = 1, PRINT_MARKET_CAP = 2, PRINT_DAILY_HIGH_LOW = 3, PRINT_YEAR_HIGH_LOW = 4, PRINT_OPEN = 5, PRINT_VOLUME = 6 };
 extern printType switchText;
 extern MD_Parola P;
 extern uint8_t scrollDelay;
@@ -57,7 +56,6 @@ extern bool dailyHighLowVisible;
 extern bool yearHighLowVisible;
 extern bool openPriceVisible;
 extern bool volumeVisible;
-extern bool bitcoinMinedVisible;
 extern bool newApiKey;
 extern bool newWiFiCredentials;
 

@@ -12,7 +12,6 @@ char stripMessageDailyHighLow[BUF_SIZE]; // Daily High/Low
 char stripMessageYearHighLow[BUF_SIZE]; // Year High/Low
 char stripMessageOpen[BUF_SIZE]; // Open
 char stripMessageVolume[BUF_SIZE]; // Volume
-char stripMessageBitcoinMined[BUF_SIZE]; // Total Bitcoin mined
 
 AsyncWebServer server(80);
 WiFiClient client;
@@ -39,6 +38,5 @@ bool dailyHighLowVisible = true;
 bool yearHighLowVisible = true;
 bool openPriceVisible = true;
 bool volumeVisible = true;
-bool bitcoinMinedVisible = true;
 bool newApiKey = false;
 bool newWiFiCredentials = false;

@@ -88,7 +88,6 @@ void setupRoutes() {
 		doc["yearHighLow"] = yearHighLowVisible ? "Y" : "N";
 		doc["openPrice"] = openPriceVisible ? "Y" : "N";
 		doc["volume"] = volumeVisible ? "Y" : "N";
-		doc["bitcoinMined"] = bitcoinMinedVisible ? "Y" : "N";
 		doc["formatType"] = formatType == FORMAT_US ? "US" : "EU";
 		size_t jsonLength = measureJson(doc) + 1; // Get the size of the JSON object
 		char json[jsonLength];
@@ -112,8 +111,6 @@ void setupRoutes() {
 			openPriceVisible = request->getParam("openPrice")->value() == "Y";
 		if (request->hasParam("volume"))
 			volumeVisible = request->getParam("volume")->value() == "Y";
-		if (request->hasParam("bitcoinMined"))
-			bitcoinMinedVisible = request->getParam("bitcoinMined")->value() == "Y";
 		if (request->hasParam("formatType"))
 			formatType = request->getParam("formatType")->value() == "US" ? FORMAT_US : FORMAT_EU;
 		request->send(200, "application/json", "{\"status\":\"OK\"}");

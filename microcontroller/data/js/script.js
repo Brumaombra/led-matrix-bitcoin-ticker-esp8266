@@ -182,7 +182,7 @@ const getValuesSettings = (successCallback, errorCallback) => {
         $("#selectYearHighLow").val(data.yearHighLow || "Y").trigger("change"); // Set the visibility
         $("#selectOpenPrice").val(data.openPrice || "Y").trigger("change"); // Set the visibility
         $("#selectVolume").val(data.volume || "Y").trigger("change"); // Set the visibility
-        $("#selectBitcoinMined").val(data.bitcoinMined || "Y").trigger("change"); // Set the visibility
+        // $("#selectBitcoinMined").val(data.bitcoinMined || "Y").trigger("change"); // Set the visibility
         $("#selectFormatType").val(data.formatType || "US").trigger("change"); // Set the visibility
     }).catch(error => {
         errorCallback && errorCallback(error); // If error call the function
@@ -202,7 +202,7 @@ const saveValuesSetting = () => {
         yearHighLow: $("#selectYearHighLow").val() || "Y",
         openPrice: $("#selectOpenPrice").val() || "Y",
         volume: $("#selectVolume").val() || "Y",
-        bitcoinMined: $("#selectBitcoinMined").val() || "Y",
+        // bitcoinMined: $("#selectBitcoinMined").val() || "Y",
         formatType: $("#selectFormatType").val() || "US"
     }).toString();
     fetch(`${ESPIP}/saveValuesSettings?${queryString}`).then(response => {

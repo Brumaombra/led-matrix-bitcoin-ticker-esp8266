@@ -73,13 +73,6 @@ void manageLedMatrix() {
 			Serial.println("Section: VOLUME");
 			if (volumeVisible) // Check if volume is visible
 				printOnLedMatrix(stripMessageVolume, BUF_SIZE); // Print the message on the matrix
-			switchText = PRINT_BITCOIN_MINED;
-			break;
-		
-		case PRINT_BITCOIN_MINED:
-			Serial.println("Section: MINED");
-			if (bitcoinMinedVisible) // Check if bitcoin mined is visible
-				printOnLedMatrix(stripMessageBitcoinMined, BUF_SIZE); // Print the message on the matrix
 			switchText = PRINT_PRICE;
 			break;
 	}

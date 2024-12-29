@@ -30,7 +30,7 @@ void createStockDataMessage(JsonDocument doc) {
 
 	// Price
 	tempVal = doc[0]["price"].as<double>();
-	tempVal2 = doc[0]["changesPercentage"].as<double>();
+	tempVal2 = doc[0]["changePercentage"].as<double>();
 	formatCurrency(tempVal, tempString, MAX_NUMBER_SIZE); // Format number
 	formatCurrency(tempVal2, tempString2, MAX_NUMBER_SIZE); // Format number
 	snprintf(stripMessagePrice, BUF_SIZE, " BTC: $ %s (%s%%)", tempString, tempString2);
@@ -68,13 +68,6 @@ void createStockDataMessage(JsonDocument doc) {
 	tempVal = doc[0]["volume"].as<double>();
 	formatCurrency(tempVal, tempString, MAX_NUMBER_SIZE); // Format number
 	snprintf(stripMessageVolume, BUF_SIZE, "Volume: $ %s", tempString);
-
-	// Bitcoin mined
-	tempVal = doc[0]["sharesOutstanding"].as<double>();
-	tempVal2 = tempVal / 21000000 * 100; // Current supply percentage
-	formatCurrency(tempVal, tempString, MAX_NUMBER_SIZE); // Format number
-	formatCurrency(tempVal2, tempString2, MAX_NUMBER_SIZE); // Format number
-	snprintf(stripMessageBitcoinMined, BUF_SIZE, "Total Bitcoin mined: %s (%s%%)", tempString, tempString2);
 }
 
 // Getting Bitcoin data
