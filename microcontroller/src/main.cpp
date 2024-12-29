@@ -1,3 +1,5 @@
+/*
+#include <Arduino.h>
 #include <MD_Parola.h>
 #include <MD_MAX72xx.h>
 #include <ESP8266WiFi.h>
@@ -6,24 +8,35 @@
 #include <WiFiClientSecure.h>
 #include <LittleFS.h>
 #include <ESPAsyncWebServer.h>
-#include <EEPROM.h>
-#include <StreamUtils.h>
+*/
 
+// #include "config/config.h"
+// #include "utils/utils.h"
+#include "storage/storage.h"
+#include "api/api.h"
+#include "wifi/wifi.h"
+#include "matrix/matrix.h"
+#include "server/server.h"
+
+/*
 #define PRINT(s, x)
 #define PRINTS(x)
 #define PRINTX(x)
+*/
 
-// Hardware configuration
+/* Hardware configuration
 #define HARDWARE_TYPE MD_MAX72XX::FC16_HW
 #define BUF_SIZE 250 // Buffer length
 #define MAX_DEVICES 16 // Number of modules <- TODO - Change with your data
 #define CLK_PIN D5 // SCK <- TODO - Change with your data (If needed)
 #define DATA_PIN D7 // MOSI <- TODO - Change with your data (If needed)
 #define CS_PIN D8 // SS <- TODO - Change with your data (If needed)
+*/
 
+/*
 AsyncWebServer server(80); // Web server
 WiFiClient client; // Client object
-HTTPClient http; // HTTP object
+// HTTPClient http; // HTTP object
 const char accessPointSSID[] = "Bitcoin-Ticker"; // Access point SSID
 char wiFiSSID[35] = ""; // Network SSID
 char wiFiPassword[70] = ""; // Network password
@@ -35,8 +48,8 @@ connectionStatus wiFiConnectionStatus = WIFI_KO; // Connection status
 unsigned long currentMillis; // Current time
 unsigned long timestampStockData = 0; // Timestamp stock data
 unsigned long timestampWiFiConnection = 0; // Timestamp WiFi connection
-enum formatNum { FORMAT_US = 1, FORMAT_EU = 2 }; // Numeric formatting type
-formatNum formatType = FORMAT_US; // Current numeric formatting type
+// enum formatNum { FORMAT_US = 1, FORMAT_EU = 2 }; // Numeric formatting type
+// formatNum formatType = FORMAT_US; // Current numeric formatting type
 enum printType { PRINT_PRICE = 0, PRINT_CHANGE = 1, PRINT_MARKET_CAP = 2, PRINT_DAILY_HIGH_LOW = 3, PRINT_YEAR_HIGH_LOW = 4, PRINT_OPEN = 5, PRINT_VOLUME = 6, PRINT_BITCOIN_MINED = 7 }; // Print type
 printType switchText = PRINT_PRICE; // Variable for the switch
 MD_Parola P = MD_Parola(HARDWARE_TYPE, CS_PIN, MAX_DEVICES);
@@ -54,8 +67,9 @@ bool volumeVisible = true; // Volume visible
 bool bitcoinMinedVisible = true; // Total bitcoin mined visible
 bool newApiKey = false; // New API key
 bool newWiFiCredentials = false; // New WiFi credentials
+*/
 
-// Global message buffers shared by serial and scrolling functions
+/* Global message buffers shared by serial and scrolling functions
 char currentMessage[BUF_SIZE]; // Current message
 char stripMessagePrice[BUF_SIZE]; // Price
 char stripMessageDailyChange[BUF_SIZE]; // Change
@@ -65,21 +79,24 @@ char stripMessageYearHighLow[BUF_SIZE]; // Year High/Low
 char stripMessageOpen[BUF_SIZE]; // Open
 char stripMessageVolume[BUF_SIZE]; // Volume
 char stripMessageBitcoinMined[BUF_SIZE]; // Total Bitcoin mined
+*/
 
-// Custom string copy function
+/* Custom string copy function
 void stringCopy(char* destination, const char* text, size_t length) {
 	if (length <= 0) return; // If length is 0, do nothing
     strncpy(destination, text, length - 1); // Copy the string
     destination[length - 1] = '\0'; // Add the terminating character
 }
+*/
 
-// Print the message on the matrix
+/* Print the message on the matrix
 void printOnLedMatrix(const char* message, const byte stringLength, uint16_t messageStill = scrollPause) {
 	stringCopy(currentMessage, message, stringLength); // Copy the message
 	P.displayText(currentMessage, scrollAlign, scrollDelay, messageStill, scrollEffect, scrollEffect); // Print the message on the matrix
 }
+*/
 
-// Read data from the EEPROM
+/* Read data from the EEPROM
 bool readEEPROM(JsonDocument& doc) {
     EepromStream eepromStream(0, 256);
 	DeserializationError error = deserializeJson(doc, eepromStream);
@@ -114,8 +131,9 @@ bool writeEEPROM() {
 	Serial.println("Data saved on EEPROM");
 	return true; // Write success
 }
+*/
 
-// Format a currency - Inspired by the Currency library made by RobTillaart
+/* Format a currency - Inspired by the Currency library made by RobTillaart
 char* addThousandsSeparators(double value, int decimals, char decimalSeparator, char thousandSeparator, char symbol = ' ') {
 	static char tmp[30]; // Temporary buffer to store the formatted string
 	uint8_t index = 0; // Index for placing characters in tmp
@@ -151,8 +169,9 @@ void formatCurrency(double value, char* output, const byte length) {
 	else
 		stringCopy(output, addThousandsSeparators(value * 100, 2, ',', '.'), length);
 }
+*/
 
-// Create the scrolling message
+/* Create the scrolling message
 void createStockDataMessage(JsonDocument doc) {
 	Serial.println("Creating message...");
 	const byte MAX_NUMBER_SIZE = 30; // Max length for the numbers
@@ -209,8 +228,9 @@ void createStockDataMessage(JsonDocument doc) {
 	formatCurrency(tempVal2, tempString2, MAX_NUMBER_SIZE); // Format number
 	snprintf(stripMessageBitcoinMined, BUF_SIZE, "Total Bitcoin mined: %s (%s%%)", tempString, tempString2);
 }
+*/
 
-// Getting Bitcoin data
+/* Getting Bitcoin data
 bool getStockDataAPI() {
     char url[100]; // URL modificato per utilizzare HTTP
     sprintf(url, "http://financialmodelingprep.com/api/v3/quote/BTCUSD?apikey=%s", apiKey);
@@ -233,8 +253,9 @@ bool getStockDataAPI() {
         return false;
     }
 }
+*/
 
-// Connecting to WiFi
+/* Connecting to WiFi
 bool connectToWiFi() {
 	WiFi.begin(wiFiSSID, wiFiPassword); // Connecting to the WiFi
 	byte maxTry = 50; // Maximum number of attempts to connect to WiFi
@@ -254,8 +275,9 @@ bool connectToWiFi() {
 	writeEEPROM(); // Save the network credentials
 	return true; // Connection success
 }
+*/
 
-// Setup delle route
+/* Setup delle route
 void setupRoutes() {
 	server.serveStatic("/", LittleFS, "/").setDefaultFile("index.html"); // Serve web page
 	server.onNotFound([](AsyncWebServerRequest *request) { // Page not found
@@ -370,8 +392,9 @@ void setupRoutes() {
 		Serial.println("Values settings changed");
 	});
 }
+*/
 
-// Setting up the access point
+/* Setting up the access point
 bool setupAccessPoint() {
 	if (accessPointEnabled) // Check if already enabled
 		return true; // If enabled exit the function
@@ -380,8 +403,9 @@ bool setupAccessPoint() {
 		return false; // If not enabled exit the function
 	return true; // Access point enabled
 }
+*/
 
-// Manage WiFi connection
+/* Manage WiFi connection
 bool manageWiFiConnection() {
 	if (wiFiConnectionStatus == WIFI_TRY) { // Check if already trying to connect
 		if (connectToWiFi()) { // Connecting to WiFi
@@ -428,8 +452,9 @@ bool checkWifiConnection() {
 	}
 	return true; // Connected
 }
+*/
 
-// Call the API to get the data
+/* Call the API to get the data
 bool callAPI() {
 	currentMillis = millis();
 	if (currentMillis - timestampStockData > 360000 || timestampStockData == 0) { // Call the API every 6 minutes (To limit usage)
@@ -451,8 +476,9 @@ bool callAPI() {
 	}
 	return true; // If no error, return true
 }
+*/
 
-// Manage the LED matrix
+/* Manage the LED matrix
 void manageLedMatrix() {
 	if (!P.displayAnimate())
 		return; // If scrolling, exit the function
@@ -520,19 +546,22 @@ void manageLedMatrix() {
 			break;
 	}
 }
+*/
 
-// Setup the web client
+/* Setup the web client
 void setupWebClient() {
     http.setTimeout(5000); // Set timeout
 }
+*/
 
-// Setup the LED matrix
+/* Setup the LED matrix
 void setupLedMatrix() {
 	P.begin(); // Start the LED matrix
 	printOnLedMatrix("Initializing...", BUF_SIZE); // Print the message on the matrix
 }
+*/
 
-// Setup LittleFS
+/* Setup LittleFS
 bool setupLittleFS() {
 	if (!LittleFS.begin()) { // Check if LittleFS is mounted
 		Serial.println("An Error has occurred while mounting LittleFS");
@@ -541,14 +570,16 @@ bool setupLittleFS() {
 		return true;
 	}
 }
+*/
 
-// Setup server
+/* Setup server
 void setupServer() {
 	setupRoutes(); // Setup routes
 	server.begin(); // Start the server
 }
+*/
 
-// Setup EEPROM
+/* Setup EEPROM
 void setupEEPROM() {
 	EEPROM.begin(256); // Start the EEPROM
 	JsonDocument doc; // JSON object
@@ -562,6 +593,7 @@ void setupEEPROM() {
 		stringCopy(wiFiPassword, doc["password"], sizeof(wiFiPassword));
 	Serial.println("EEPROM data loaded");
 }
+*/
 
 // Setup
 void setup() {

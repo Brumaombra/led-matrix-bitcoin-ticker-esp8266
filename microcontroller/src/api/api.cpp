@@ -1,0 +1,120 @@
+#include "api.h"
+#include <Arduino.h>
+#include <ArduinoJson.h>
+#include <ESP8266HTTPClient.h>
+#include "../config/config.h"
+#include "../utils/utils.h"
+#include "../storage/storage.h"
+#include "../matrix/matrix.h"
+
+HTTPClient http; // HTTP object
+
+// Setup the web client
+void setupWebClient() {
+    http.setTimeout(5000); // Set timeout
+}
+
+// Create the scrolling message
+void createStockDataMessage(JsonDocument doc) {
+	Serial.println("Creating message...");
+	const byte MAX_NUMBER_SIZE = 30; // Max length for the numbers
+	char tempString[MAX_NUMBER_SIZE]; // Temporary string 1
+	char tempString2[MAX_NUMBER_SIZE]; // Temporary string 2
+	double tempVal; // Temporary variable 1
+	double tempVal2; // Temporary variable 2
+
+	// Price
+	tempVal = doc[0]["price"].as<double>();
+	tempVal2 = doc[0]["changesPercentage"].as<double>();
+	formatCurrency(tempVal, tempString, MAX_NUMBER_SIZE); // Format number
+	formatCurrency(tempVal2, tempString2, MAX_NUMBER_SIZE); // Format number
+	snprintf(stripMessagePrice, BUF_SIZE, " BTC: $ %s (%s%%)", tempString, tempString2);
+
+	// Daily Change
+	tempVal = doc[0]["change"].as<double>();
+	formatCurrency(tempVal, tempString, MAX_NUMBER_SIZE); // Format number
+	snprintf(stripMessageDailyChange, BUF_SIZE, "Daily Change: $ %s", tempString);
+
+	// Market cap
+	tempVal = doc[0]["marketCap"].as<double>();
+	formatCurrency(tempVal, tempString, MAX_NUMBER_SIZE); // Format number
+	snprintf(stripMessageMarketCap, BUF_SIZE, "Market Cap: $ %s", tempString);
+
+	// Daily High/Low
+	tempVal = doc[0]["dayHigh"].as<double>();
+	tempVal2 = doc[0]["dayLow"].as<double>();
+	formatCurrency(tempVal, tempString, MAX_NUMBER_SIZE); // Format number
+	formatCurrency(tempVal2, tempString2, MAX_NUMBER_SIZE); // Format number
+	snprintf(stripMessageDailyHighLow, BUF_SIZE, "Daily High: $ %s  -  Daily Low: $ %s", tempString, tempString2);
+
+	// Year High/Low
+	tempVal = doc[0]["yearHigh"].as<double>();
+	tempVal2 = doc[0]["yearLow"].as<double>();
+	formatCurrency(tempVal, tempString, MAX_NUMBER_SIZE); // Format number
+	formatCurrency(tempVal2, tempString2, MAX_NUMBER_SIZE); // Format number
+	snprintf(stripMessageYearHighLow, BUF_SIZE, "Year High: $ %s  -  Year Low: $ %s", tempString, tempString2);
+
+	// Open
+	tempVal = doc[0]["open"].as<double>();
+	formatCurrency(tempVal, tempString, MAX_NUMBER_SIZE); // Format number
+	snprintf(stripMessageOpen, BUF_SIZE, "Open: $ %s", tempString);
+
+	// Volume
+	tempVal = doc[0]["volume"].as<double>();
+	formatCurrency(tempVal, tempString, MAX_NUMBER_SIZE); // Format number
+	snprintf(stripMessageVolume, BUF_SIZE, "Volume: $ %s", tempString);
+
+	// Bitcoin mined
+	tempVal = doc[0]["sharesOutstanding"].as<double>();
+	tempVal2 = tempVal / 21000000 * 100; // Current supply percentage
+	formatCurrency(tempVal, tempString, MAX_NUMBER_SIZE); // Format number
+	formatCurrency(tempVal2, tempString2, MAX_NUMBER_SIZE); // Format number
+	snprintf(stripMessageBitcoinMined, BUF_SIZE, "Total Bitcoin mined: %s (%s%%)", tempString, tempString2);
+}
+
+// Getting Bitcoin data
+bool getStockDataAPI() {
+    char url[100]; // URL modificato per utilizzare HTTP
+    sprintf(url, "http://financialmodelingprep.com/api/v3/quote/BTCUSD?apikey=%s", apiKey);
+    http.begin(client, url); // Inizia una chiamata HTTP all'URL specificato
+    if (http.GET() == HTTP_CODE_OK) {
+        Serial.println("Response body: " + http.getString());
+        JsonDocument doc; // Create the JSON object
+		DeserializationError error = deserializeJson(doc, http.getString()); // Deserialize the JSON object
+		if (error) { // Error while parsing the JSON
+			Serial.printf("Error while parsing the JSON: %s\n", error.c_str());
+			http.end();
+			return false;
+		}
+		createStockDataMessage(doc); // Create the scrolling message
+		http.end(); // Close connection
+		return true;
+    } else {
+        Serial.printf("HTTP call error: %d\n", http.GET());
+        http.end();
+        return false;
+    }
+}
+
+// Call the API to get the data
+bool callAPI() {
+	currentMillis = millis();
+	if (currentMillis - timestampStockData > 360000 || timestampStockData == 0) { // Call the API every 6 minutes (To limit usage)
+		if (apiKey[0] == '\0') { // Check if API key is present
+			const char errorMessageApi[] = "API key is not present. Use the web page to insert the key and try again.";
+			Serial.println(errorMessageApi);
+			printOnLedMatrix(errorMessageApi, sizeof(errorMessageApi)); // Print the message on the matrix
+			return false; // If error, return false
+		}
+		Serial.println("Calling the API");
+		if (!getStockDataAPI()) { // Getting the data
+			const char errorMessageServer[] = "Error while calling the API. Retrying...";
+			Serial.println(errorMessageServer);
+			printOnLedMatrix(errorMessageServer, sizeof(errorMessageServer)); // Print the message on the matrix
+			return false; // If error, return false
+		}
+		writeEEPROM(); // Save the apiKey to the EEPROM
+		timestampStockData = currentMillis; // Save timestamp
+	}
+	return true; // If no error, return true
+}
