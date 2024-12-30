@@ -31,6 +31,7 @@ jobs:
     # Move Build Files
     - name: Move Build Files 📂
       run: |
+        mkdir -p microcontroller/data
         rm -rf microcontroller/data/*
         mv webapp/dist/* microcontroller/data/
     
