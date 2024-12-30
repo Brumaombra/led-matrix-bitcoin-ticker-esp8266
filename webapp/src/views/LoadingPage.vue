@@ -17,8 +17,10 @@ const initCall = async () => {
 // On component mounted
 onMounted(async () => {
     try {
-        await initCall();
-        navTo('/app/wifi');
+        setTimeout(async () => { // Delay to not overload the ESP
+            await initCall(); // Call the initCall function
+            navTo('/app/wifi'); // Navigate to the wifi page
+        }, 3000);
     } catch (error) {
         console.error(error);
         messageModal('Error', 'Error', 'An error occurred while loading the data');

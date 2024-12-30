@@ -1,0 +1,44 @@
+name: Build Vue App 🏗️
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    # Setup Node.js
+    - name: Setup Node.js 🚀
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+    
+    # Install Dependencies
+    - name: Install Dependencies 📦
+      working-directory: ./webapp
+      run: npm install
+    
+    # Build Vue App
+    - name: Build Vue App 🛠️
+      working-directory: ./webapp
+      run: npm run build
+    
+    # Move Build Files
+    - name: Move Build Files 📂
+      run: |
+        rm -rf microcontroller/data/*
+        mv webapp/dist/* microcontroller/data/
+    
+    # Commit Changes
+    - name: Commit Changes 💾
+      run: |
+        git config --local user.email "github-actions[bot]@users.noreply.github.com"
+        git config --local user.name "github-actions[bot]"
+        git add microcontroller/data
+        git commit -m "Update built files 🚀" || echo "No changes to commit"
+        git push
