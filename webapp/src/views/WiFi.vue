@@ -1,6 +1,6 @@
 <script setup>
 import { ref } from 'vue';
-import { getNetworks, connectToWiFi, setBusy } from '@/utils/utils.js';
+import { getNetworks, connectToWiFi, setBusy, messageModal } from '@/utils/utils.js';
 import GlobalStore from '@/stores/global.js';
 
 const ssid = ref('');
@@ -12,8 +12,10 @@ const handleConnectPress = async () => {
     try {
         setBusy(true); // Busy on
         await connectToWiFi(ssid.value, password.value);
+        messageModal('Success', 'Success', 'You have successfully connected the device to the Wi-Fi network! The access point will be disabled. Enjoy the Bitcoin ticker!');
     } catch (error) {
         console.error(error);
+        messageModal('Error', 'Error', 'An error occurred while connecting to the Wi-Fi network, try with a different network or check the password');
     } finally {
         setBusy(false); // Busy off
         password.value = ''; // Clear password
@@ -27,6 +29,7 @@ const refreshSSIDList = async () => {
         GlobalStore.networksList = await getNetworks();
     } catch (error) {
         console.error(error);
+        messageModal('Error', 'Error', 'An error occurred while refreshing the SSID list');
     } finally {
         isLoading.value = false;
     }

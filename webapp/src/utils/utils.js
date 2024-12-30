@@ -17,6 +17,14 @@ export const navTo = path => {
     router.push(path); // Navigate to the path
 };
 
+// Show modal with message
+export const messageModal = (type, title, message) => {
+    GlobalStore.messageModal.type = type;
+    GlobalStore.messageModal.title = title;
+    GlobalStore.messageModal.message = message;
+    GlobalStore.messageModal.visible = !GlobalStore.messageModal.visible;
+};
+
 // Load the networks
 export const getNetworks = async () => {
     try {

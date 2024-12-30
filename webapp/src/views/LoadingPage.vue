@@ -1,6 +1,6 @@
 <script setup>
 import { onMounted } from 'vue';
-import { navTo, getNetworks, getSettings } from '@/utils/utils.js';
+import { navTo, getNetworks, getSettings, messageModal } from '@/utils/utils.js';
 import GlobalStore from '@/stores/global.js';
 
 // Initial call
@@ -17,10 +17,11 @@ const initCall = async () => {
 // On component mounted
 onMounted(async () => {
     try {
-        await initCall(); // Call the initial function
-        navTo('/app/wifi'); // Redirect to the wifi page
+        await initCall();
+        navTo('/app/wifi');
     } catch (error) {
-        console.error(error); // Log the error
+        console.error(error);
+        messageModal('Error', 'Error', 'An error occurred while loading the data');
     }
 });
 </script>

@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed } from 'vue';
-import { saveApiKey, setBusy } from '@/utils/utils.js';
+import { saveApiKey, setBusy, messageModal } from '@/utils/utils.js';
 
 const isFormValid = computed(() => {
     return apiKey.value.trim();
@@ -13,8 +13,10 @@ const handleSavePress = async () => {
     try {
         setBusy(true); // Busy on
         await saveApiKey(apiKey.value);
+        messageModal('Success', 'Success', 'The API key has been saved successfully!');
     } catch (error) {
         console.error(error);
+        messageModal('Error', 'Error', 'An error occurred while saving the API key');
     } finally {
         setBusy(false); // Busy off
         apiKey.value = ''; // Clear the API key

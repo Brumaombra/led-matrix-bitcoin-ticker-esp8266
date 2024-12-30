@@ -1,6 +1,6 @@
 <script setup>
 import GlobalStore from '@/stores/global.js';
-import { saveSettings, setBusy } from '@/utils/utils.js';
+import { saveSettings, setBusy, messageModal } from '@/utils/utils.js';
 import ToggleSwitch from '@/components/ToggleSwitch.vue';
 
 // Save the API key
@@ -8,8 +8,10 @@ const handleSavePress = async () => {
     try {
         setBusy(true); // Busy on
         await saveSettings(GlobalStore.settings);
+        messageModal('Success', 'Success', 'The settings have been saved successfully!');
     } catch (error) {
         console.error(error);
+        messageModal('Error', 'Error', 'An error occurred while saving the settings');
     } finally {
         setBusy(false); // Busy off
     }
