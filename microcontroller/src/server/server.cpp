@@ -4,9 +4,19 @@
 #include "../wifi/wifi.h"
 #include "../config/config.h"
 #include "../utils/utils.h"
+#include "../storage/storage.h"
+
+// Global buffer for POST data
+String postData = "";
 
 // Setup delle route
 void setupRoutes() {
+	// CORS
+	DefaultHeaders::Instance().addHeader("Access-Control-Allow-Origin", "*");
+	DefaultHeaders::Instance().addHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+	DefaultHeaders::Instance().addHeader("Access-Control-Allow-Headers", "Content-Type");
+	
+	// Static files
 	server.serveStatic("/", LittleFS, "/").setDefaultFile("index.html"); // Serve web page
 	server.onNotFound([](AsyncWebServerRequest *request) { // Page not found
 		request->send(404);
@@ -18,17 +28,19 @@ void setupRoutes() {
 			request->send(400, "application/json", "{\"status\":\"KO\"}"); // Response
 			return;
 		}
+
+		// Save the new credentials into temp variables
 		stringCopy(wiFiSSID, request->getParam("ssid")->value().c_str(), 35); // Save the SSID
 		stringCopy(wiFiPassword, request->getParam("password")->value().c_str(), 70); // Save the password
-		Serial.print("SSID: ");
-		Serial.println(wiFiSSID);
-		Serial.print("Password: ");
-		Serial.println(wiFiPassword);
 		wiFiConnectionStatus = WIFI_TRY; // Trying to connect
+
+		// Print the new credentials
+		Serial.printf("SSID: %s, Password: %s\n", wiFiSSID, wiFiPassword);
+
+		// Response
 		char jsonResponse[20]; // JSON response
 		snprintf(jsonResponse, sizeof(jsonResponse), "{\"status\":\"%d\"}", wiFiConnectionStatus); // Create response
 		request->send(200, "application/json", jsonResponse); // Response
-		newWiFiCredentials = true; // New credentials
 	});
 
 	// Check the WiFi connection status
@@ -54,11 +66,15 @@ void setupRoutes() {
 		WiFi.scanNetworksAsync([request](int numNetworks) {
 			JsonDocument doc; // JSON object
 			JsonArray networks = doc["networks"].to<JsonArray>();
+
+			// Add the networks to the JSON object
 			for (int i = 0; i < numNetworks; i++) {
 				JsonObject network = networks.add<JsonObject>();
 				network["ssid"] = WiFi.SSID(i);
 				network["signal"] = WiFi.RSSI(i);
 			}
+
+			// Send the JSON object
 			size_t jsonLength = measureJson(doc) + 1; // Get the size of the JSON object
 			char json[jsonLength];
 			serializeJson(doc, json, jsonLength);
@@ -72,49 +88,87 @@ void setupRoutes() {
         	request->send(400, "application/json", "{\"status\":\"KO\"}"); // Send the JSON object
         	return;
     	}
+
+		// Save the new API key
 		stringCopy(apiKey, request->getParam("apiKey")->value().c_str(), 35); // Save the API key
+		writeEEPROM(); // Save the API key
+
+		// Send the JSON object
 		request->send(200, "application/json", "{\"status\":\"OK\"}"); // Send the JSON object
 		Serial.println("API key changed");
-		newApiKey = true; // New API key
 	});
 
 	// Get the values visibility settings
-	server.on("/valuesSettings", HTTP_GET, [](AsyncWebServerRequest *request) {
+	server.on("/settings", HTTP_GET, [](AsyncWebServerRequest *request) {
 		JsonDocument doc; // JSON object
-		doc["currentPrice"] = currentPriceVisible ? "Y" : "N";
-		doc["priceChange"] = priceChangeVisible ? "Y" : "N";
-		doc["marketCap"] = marketCapVisible ? "Y" : "N";
-		doc["dailyHighLow"] = dailyHighLowVisible ? "Y" : "N";
-		doc["yearHighLow"] = yearHighLowVisible ? "Y" : "N";
-		doc["openPrice"] = openPriceVisible ? "Y" : "N";
-		doc["volume"] = volumeVisible ? "Y" : "N";
+
+		// Add the visibility settings to the JSON object
+		doc["currentPrice"] = currentPriceVisible;
+		doc["priceChange"] = priceChangeVisible;
+		doc["marketCap"] = marketCapVisible;
+		doc["dailyHighLow"] = dailyHighLowVisible;
+		doc["yearHighLow"] = yearHighLowVisible;
+		doc["openPrice"] = openPriceVisible;
+		doc["volume"] = volumeVisible;
 		doc["formatType"] = formatType == FORMAT_US ? "US" : "EU";
+
+		// Send the JSON object
 		size_t jsonLength = measureJson(doc) + 1; // Get the size of the JSON object
 		char json[jsonLength];
 		serializeJson(doc, json, jsonLength);
 		request->send(200, "application/json", json); // Send the JSON object
 	});
 
+	// POST request for preflighted requests
+	server.on("/settings", HTTP_OPTIONS, [](AsyncWebServerRequest *request) {
+		request->send(200);
+	});
+
 	// Save the values visibility settings
-	server.on("/saveValuesSettings", HTTP_GET, [](AsyncWebServerRequest *request) {
-		if (request->hasParam("currentPrice"))
-			currentPriceVisible = request->getParam("currentPrice")->value() == "Y";
-		if (request->hasParam("priceChange"))
-			priceChangeVisible = request->getParam("priceChange")->value() == "Y";
-		if (request->hasParam("marketCap"))
-			marketCapVisible = request->getParam("marketCap")->value() == "Y";
-		if (request->hasParam("dailyHighLow"))
-			dailyHighLowVisible = request->getParam("dailyHighLow")->value() == "Y";
-		if (request->hasParam("yearHighLow"))
-			yearHighLowVisible = request->getParam("yearHighLow")->value() == "Y";
-		if (request->hasParam("openPrice"))
-			openPriceVisible = request->getParam("openPrice")->value() == "Y";
-		if (request->hasParam("volume"))
-			volumeVisible = request->getParam("volume")->value() == "Y";
-		if (request->hasParam("formatType"))
-			formatType = request->getParam("formatType")->value() == "US" ? FORMAT_US : FORMAT_EU;
-		request->send(200, "application/json", "{\"status\":\"OK\"}");
-		Serial.println("Values settings changed");
+	server.on("/settings", HTTP_POST, [](AsyncWebServerRequest *request){}, NULL, [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
+		// Accumulate chunks (ESP8266 splits data in multiple chunks)
+		if (index == 0) postData = "";
+		for(size_t i = 0; i < len; i++) {
+			postData += (char)data[i];
+		}
+		
+		// Process only when all chunks received
+		if (index + len == total) {
+			Serial.println("Complete data: " + postData);
+
+			// Parse the JSON object
+			JsonDocument doc;
+			DeserializationError error = deserializeJson(doc, postData);
+			if (error) {
+				request->send(400, "application/json", "{\"status\":\"error\",\"message\":\"Invalid JSON\"}");
+				return;
+			}
+			
+			// Get the new settings
+			if (!doc["currentPrice"].isNull())
+				currentPriceVisible = doc["currentPrice"].as<bool>();
+			if (!doc["priceChange"].isNull())
+				priceChangeVisible = doc["priceChange"].as<bool>();
+			if (!doc["marketCap"].isNull())
+				marketCapVisible = doc["marketCap"].as<bool>();
+			if (!doc["dailyHighLow"].isNull())
+				dailyHighLowVisible = doc["dailyHighLow"].as<bool>();
+			if (!doc["yearHighLow"].isNull())
+				yearHighLowVisible = doc["yearHighLow"].as<bool>();
+			if (!doc["openPrice"].isNull())
+				openPriceVisible = doc["openPrice"].as<bool>();
+			if (!doc["volume"].isNull())
+				volumeVisible = doc["volume"].as<bool>();
+			if (!doc["formatType"].isNull())
+				formatType = doc["formatType"].as<String>() == "US" ? FORMAT_US : FORMAT_EU;
+			
+			// Save the new settings
+			writeEEPROM();
+
+			// Send the JSON object
+			request->send(200, "application/json", "{\"status\":\"OK\"}");
+			Serial.println("Values settings changed");
+		}
 	});
 }
 

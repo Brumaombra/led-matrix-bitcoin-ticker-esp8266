@@ -30,31 +30,29 @@ bool readEEPROM(JsonDocument& doc) {
 
 // Write data to the EEPROM
 bool writeEEPROM() {
-    // Check if the data needs to be saved
-    if (!newApiKey && !newWiFiCredentials) {
-        return true;
-    }
-
-	EepromStream eepromStream(0, 256);
-	JsonDocument doc;
-
-    // Read data from EEPROM
-	if (!readEEPROM(doc)) {
-        Serial.println("Overwriting the saved data...");
-    }
-
-    // Check if the API key needs to be updated
-	if (newApiKey) {
-        doc["apiKey"] = apiKey;
-    }
+	JsonDocument doc; // JSON object
 
     // Check if the WiFi credentials need to be updated
-	if (newWiFiCredentials) {
-		doc["ssid"] = wiFiSSID;
-		doc["password"] = wiFiPassword;
-	}
+    doc["ssid"] = wiFiSSID;
+    doc["password"] = wiFiPassword;
+
+    // Add the API key to the JSON object
+    doc["apiKey"] = apiKey;
+
+    // Add the visibility settings to the JSON object
+    doc["currentPrice"] = currentPriceVisible;
+    doc["priceChange"] = priceChangeVisible;
+    doc["marketCap"] = marketCapVisible;
+    doc["dailyHighLow"] = dailyHighLowVisible;
+    doc["yearHighLow"] = yearHighLowVisible;
+    doc["openPrice"] = openPriceVisible;
+    doc["volume"] = volumeVisible;
+
+    // Add the format type to the JSON object
+    doc["formatType"] = formatType == FORMAT_US ? "US" : "EU";
 
     // Write data to EEPROM
+    EepromStream eepromStream(0, 256);
 	if (!serializeJson(doc, eepromStream)) {
         return false; // Error while writing on EEPROM
     }
@@ -65,8 +63,6 @@ bool writeEEPROM() {
     }
 
     // Mark as saved
-	newApiKey = false;
-	newWiFiCredentials = false;
 	Serial.println("Data saved on EEPROM");
 	return true; // Write success
 }
@@ -81,21 +77,36 @@ void loadSettingFromEEPROM() {
     }
 
     // Check if the API key is present
-	if (!doc["apiKey"].isNull()) {
+	if (!doc["apiKey"].isNull())
         stringCopy(apiKey, doc["apiKey"], sizeof(apiKey));
-    }
     
-    // Check if the WiFi SSID is present
-    if (!doc["ssid"].isNull()) {
+    // Check if the WiFi credentials are present
+    if (!doc["ssid"].isNull())
         stringCopy(wiFiSSID, doc["ssid"], sizeof(wiFiSSID));
-    }
-    
-    // Check if the WiFi password is present
-    if (!doc["password"].isNull()) {
+    if (!doc["password"].isNull())
         stringCopy(wiFiPassword, doc["password"], sizeof(wiFiPassword));
-    }
     
-	Serial.println("EEPROM data loaded");
+    // Check if the visibility settings are present
+    if (!doc["currentPrice"].isNull())
+        currentPriceVisible = doc["currentPrice"].as<bool>();
+    if (!doc["priceChange"].isNull())
+        priceChangeVisible = doc["priceChange"].as<bool>();
+    if (!doc["marketCap"].isNull())
+        marketCapVisible = doc["marketCap"].as<bool>();
+    if (!doc["dailyHighLow"].isNull())
+        dailyHighLowVisible = doc["dailyHighLow"].as<bool>();
+    if (!doc["yearHighLow"].isNull())
+        yearHighLowVisible = doc["yearHighLow"].as<bool>();
+    if (!doc["openPrice"].isNull())
+        openPriceVisible = doc["openPrice"].as<bool>();
+    if (!doc["volume"].isNull())
+        volumeVisible = doc["volume"].as<bool>();
+
+    // Display settings
+    if (!doc["formatType"].isNull())
+        formatType = doc["formatType"].as<const char*>() == "US" ? FORMAT_US : FORMAT_EU;
+    
+	Serial.println("EEPROM data loaded successfully");
 }
 
 // Setup EEPROM

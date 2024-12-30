@@ -1,11 +1,22 @@
+<script setup>
+import { ref } from 'vue';
+
+const isOpen = ref(false);
+
+// Handle toggle menu
+const toggleMenu = () => {
+    isOpen.value = !isOpen.value;
+};
+</script>
+
 <template>
-    <nav class="bg-gray-800">
+    <nav class="fixed top-0 w-full z-50 bg-gray-800 shadow-lg">
         <div class="mx-auto max-w-7xl px-2 sm:px-6 lg:px-8">
             <div class="relative flex h-16 items-center justify-between">
                 <!-- Mobile menu button -->
                 <div class="absolute inset-y-0 left-0 flex items-center sm:hidden">
                     <!-- Mobile menu button-->
-                    <button type="button" class="relative inline-flex items-center justify-center rounded-md p-2 text-gray-400 hover:bg-gray-700 hover:text-white focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white" aria-controls="mobile-menu" aria-expanded="false">
+                    <button type="button" class="relative inline-flex items-center justify-center rounded-md p-2 text-gray-400" aria-controls="mobile-menu" aria-expanded="false" @click="toggleMenu">
                         <span class="absolute -inset-0.5"></span>
                         <span class="sr-only">Open main menu</span>
                         <svg class="block size-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" data-slot="icon">
@@ -34,11 +45,11 @@
         </div>
 
         <!-- Mobile menu -->
-        <div id="mobile-menu" class="sm:hidden">
+        <div id="mobile-menu" class="sm:hidden" :class="{'block': isOpen, 'hidden': !isOpen}">
             <div class="space-y-1 px-2 pb-3 pt-2">
-                <router-link to="/app/settings" class="block rounded-md px-3 py-2 text-base font-medium text-gray-300 hover:bg-gray-700 hover:text-white" active-class="text-white font-extrabold">Settings</router-link>
-                <router-link to="/app/wifi" class="block rounded-md px-3 py-2 text-base font-medium text-gray-300 hover:bg-gray-700 hover:text-white" active-class="text-white font-extrabold">WiFi</router-link>
-                <router-link to="/app/apiKey" class="block rounded-md px-3 py-2 text-base font-medium text-gray-300 hover:bg-gray-700 hover:text-white" active-class="text-white font-extrabold">API Key</router-link>
+                <router-link to="/app/settings" class="block rounded-md px-3 py-2 text-base font-medium text-gray-300" active-class="text-white !font-extrabold" @click="toggleMenu">Settings</router-link>
+                <router-link to="/app/wifi" class="block rounded-md px-3 py-2 text-base font-medium text-gray-300" active-class="text-white !font-extrabold" @click="toggleMenu">WiFi</router-link>
+                <router-link to="/app/apiKey" class="block rounded-md px-3 py-2 text-base font-medium text-gray-300" active-class="text-white !font-extrabold" @click="toggleMenu">API Key</router-link>
             </div>
         </div>
     </nav>

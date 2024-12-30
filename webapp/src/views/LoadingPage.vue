@@ -1,12 +1,27 @@
 <script setup>
 import { onMounted } from 'vue';
-import { navTo } from '@/utils/utils.js';
+import { navTo, getNetworks, getSettings } from '@/utils/utils.js';
+import GlobalStore from '@/stores/global.js';
+
+// Initial call
+const initCall = async () => {
+    try {
+        GlobalStore.networksList = await getNetworks(); // Get the networks
+        GlobalStore.settings = await getSettings(); // Get the settings
+    } catch (error) {
+        console.error(error); // Log the error
+        throw new Error('Failed to load data'); // Throw an error
+    }
+};
 
 // On component mounted
-onMounted(() => {
-    setTimeout(() => {
-        navTo('/app/settings');
-    }, 2000);
+onMounted(async () => {
+    try {
+        await initCall(); // Call the initial function
+        navTo('/app/wifi'); // Redirect to the wifi page
+    } catch (error) {
+        console.error(error); // Log the error
+    }
 });
 </script>
 
@@ -21,9 +36,15 @@ onMounted(() => {
 
 <style scoped>
 @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
 }
+
 .animate-spin {
     animation: spin 1s linear infinite;
 }

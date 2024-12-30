@@ -6,23 +6,30 @@
 
 // Connecting to WiFi
 bool connectToWiFi() {
-	WiFi.begin(wiFiSSID, wiFiPassword); // Connecting to the WiFi
-	byte maxTry = 50; // Maximum number of attempts to connect to WiFi
-	byte count = 0; // Counter
-	Serial.print("Connecting to WiFi");
-	while (WiFi.status() != WL_CONNECTED) {
-		if (count >= maxTry) {
-			wiFiSSID[0] = '\0'; // Reset network SSID
-			wiFiPassword[0] = '\0'; // Reset network password
-			return false; // Connection failed
-		}
-		count++;
-		Serial.print(".");
-		delay(250);
-	}
-	Serial.println(" connected!");
-	writeEEPROM(); // Save the network credentials
-	return true; // Connection success
+    WiFi.begin(wiFiSSID, wiFiPassword);
+    byte maxTry = 50;
+    byte count = 0;
+    Serial.print("Connecting to WiFi");
+    
+	// Wait for connection
+    while (WiFi.status() != WL_CONNECTED) {
+        if (count >= maxTry) {
+            wiFiSSID[0] = '\0';
+            wiFiPassword[0] = '\0';
+            return false;
+        }
+        count++;
+        Serial.print(".");
+        delay(250);
+    }
+
+	// Check if connected
+    if (WiFi.status() == WL_CONNECTED) {
+        Serial.println(" connected!");
+        return true;
+    }
+    
+    return false;
 }
 
 // Setting up the access point
@@ -40,6 +47,7 @@ bool manageWiFiConnection() {
 	if (wiFiConnectionStatus == WIFI_TRY) { // Check if already trying to connect
 		if (connectToWiFi()) { // Connecting to WiFi
 			wiFiConnectionStatus = WIFI_OK; // Update connection status
+			writeEEPROM(); // Save the new credentials
 			return true; // Connection success
 		} else {
 			wiFiConnectionStatus = WIFI_KO; // Update connection status
@@ -50,20 +58,28 @@ bool manageWiFiConnection() {
 	// Every 2 seconds
 	if (millis() - timestampWiFiConnection > 2000) {
 		timestampWiFiConnection = millis(); // Save timestamp
-		if (disableAccessPoint && accessPointEnabled) { // Check if I need to disable the access point
+		
+		// Check if I need to disable the access point
+		if (disableAccessPoint && accessPointEnabled) {
 			accessPointEnabled = !WiFi.softAPdisconnect(); // Disable access point
-			if (!accessPointEnabled) // Check if disabled
+			if (!accessPointEnabled) { // Check if disabled
 				disableAccessPoint = false; // Mark as disabled
+			}
 		}
 
-		if (WiFi.status() == WL_CONNECTED) // Check if connected to WiFi
-			return true; // If connected exit the function
-			
-		if (wiFiSSID[0] != '\0' && wiFiPassword[0] != '\0') { // Check if credentials are already present
-			if (connectToWiFi()) // Connecting to WiFi
+		// Check if connected to WiFi
+		if (WiFi.status() == WL_CONNECTED) {
+			wiFiConnectionStatus = WIFI_OK; // Update connection status
+			return true; // Connection success
+		}
+		
+		// Check if credentials are already present
+		if (wiFiSSID[0] != '\0' && wiFiPassword[0] != '\0') {
+			if (connectToWiFi()) { // Connecting to WiFi
 				return true; // Connection success
-			else
+			} else {
 				setupAccessPoint(); // Setup access point
+			}
 		} else {
 			setupAccessPoint(); // Setup access point
 		}

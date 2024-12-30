@@ -27,6 +27,7 @@ extern char stripMessageYearHighLow[BUF_SIZE]; // Year High/Low
 extern char stripMessageOpen[BUF_SIZE]; // Open
 extern char stripMessageVolume[BUF_SIZE]; // Volume
 
+// WiFi and client configuration
 extern AsyncWebServer server;
 extern WiFiClient client;
 extern const char accessPointSSID[];
@@ -40,6 +41,8 @@ extern connectionStatus wiFiConnectionStatus;
 extern unsigned long currentMillis;
 extern unsigned long timestampStockData;
 extern unsigned long timestampWiFiConnection;
+
+// Scrolling text configuration
 enum printType { PRINT_PRICE = 0, PRINT_CHANGE = 1, PRINT_MARKET_CAP = 2, PRINT_DAILY_HIGH_LOW = 3, PRINT_YEAR_HIGH_LOW = 4, PRINT_OPEN = 5, PRINT_VOLUME = 6 };
 extern printType switchText;
 extern MD_Parola P;
@@ -56,7 +59,5 @@ extern bool dailyHighLowVisible;
 extern bool yearHighLowVisible;
 extern bool openPriceVisible;
 extern bool volumeVisible;
-extern bool newApiKey;
-extern bool newWiFiCredentials;
 
 #endif

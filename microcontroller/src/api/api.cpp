@@ -99,21 +99,26 @@ bool getStockDataAPI() {
 bool callAPI() {
 	currentMillis = millis();
 	if (currentMillis - timestampStockData > 360000 || timestampStockData == 0) { // Call the API every 6 minutes (To limit usage)
-		if (apiKey[0] == '\0') { // Check if API key is present
+		// Check if the API key is present
+		if (apiKey[0] == '\0') {
 			const char errorMessageApi[] = "API key is not present. Use the web page to insert the key and try again.";
 			Serial.println(errorMessageApi);
 			printOnLedMatrix(errorMessageApi, sizeof(errorMessageApi)); // Print the message on the matrix
 			return false; // If error, return false
 		}
+
 		Serial.println("Calling the API");
-		if (!getStockDataAPI()) { // Getting the data
+
+		// Get the data
+		if (!getStockDataAPI()) {
 			const char errorMessageServer[] = "Error while calling the API. Retrying...";
 			Serial.println(errorMessageServer);
 			printOnLedMatrix(errorMessageServer, sizeof(errorMessageServer)); // Print the message on the matrix
 			return false; // If error, return false
 		}
-		writeEEPROM(); // Save the apiKey to the EEPROM
-		timestampStockData = currentMillis; // Save timestamp
+
+		// Update the timestamp
+		timestampStockData = currentMillis;
 	}
 	return true; // If no error, return true
 }
