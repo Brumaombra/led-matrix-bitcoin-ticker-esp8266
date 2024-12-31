@@ -43,3 +43,5 @@ bool dailyHighLowVisible = true;
 bool yearHighLowVisible = true;
 bool openPriceVisible = true;
 bool volumeVisible = true;
+uint8_t matrixIntensity = 1;
+uint8_t scrollSpeed = 1;

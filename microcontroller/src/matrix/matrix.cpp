@@ -10,9 +10,20 @@ void printOnLedMatrix(const char* message, const byte stringLength, uint16_t mes
 	P.displayText(currentMessage, scrollAlign, scrollDelay, messageStill, scrollEffect, scrollEffect); // Print the message on the matrix
 }
 
+// Set the intensity of the matrix
+void setMatrixIntensity(uint8_t intensity) {
+	P.setIntensity(intensity); // Set LED intensity (0-15, 15 is brightest)
+}
+
+// Set the speed of the matrix
+void setMatrixSpeed(uint8_t speed) {
+    scrollDelay = map(speed, 0, 15, 100, 20); // Map 0-15 to 100-20ms (slower to faster)
+}
+
 // Setup the LED matrix
 void setupLedMatrix() {
 	P.begin(); // Start the LED matrix
+	setMatrixIntensity(matrixIntensity); // Set the intensity of the matrix
 	printOnLedMatrix("Initializing...", BUF_SIZE); // Print the message on the matrix
 }
 

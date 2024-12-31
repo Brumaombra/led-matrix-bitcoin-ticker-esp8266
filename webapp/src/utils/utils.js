@@ -1,7 +1,7 @@
 import router from '@/router';
 import GlobalStore from '@/stores/global.js';
 
-const ESPIP = ''; // ESP IP address http://192.168.21.174
+const ESPIP = 'http://192.168.21.174'; // ESP IP address http://192.168.21.174
 const connectionStatus = { WIFI_TRY: 2, WIFI_OK: 1, WIFI_KO: 0 }; // Connection status types
 
 // Set the busy state of the app
