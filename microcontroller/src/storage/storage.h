@@ -6,6 +6,7 @@
 bool setupLittleFS();
 void setupEEPROM();
 bool readEEPROM(JsonDocument& doc);
+void testReadEEPROM();
 bool writeEEPROM();
 
 #endif

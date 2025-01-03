@@ -85,44 +85,69 @@ void loadSettingFromEEPROM() {
     }
 
     // Load the API key
-	if (!doc["apiKey"].isNull())
+    if (!doc["apiKey"].isNull()) {
         stringCopy(apiKey, doc["apiKey"], sizeof(apiKey));
+    }
     
     // Load the WiFi credentials
-    if (!doc["ssid"].isNull())
+    if (!doc["ssid"].isNull()) {
         stringCopy(wiFiSSID, doc["ssid"], sizeof(wiFiSSID));
-    if (!doc["password"].isNull())
+    }
+    if (!doc["password"].isNull()) {
         stringCopy(wiFiPassword, doc["password"], sizeof(wiFiPassword));
+    }
     
     // Load the visibility settings
-    if (!doc["currentPrice"].isNull())
+    if (!doc["currentPrice"].isNull()) {
         currentPriceVisible = doc["currentPrice"].as<bool>();
-    if (!doc["priceChange"].isNull())
+    }
+    if (!doc["priceChange"].isNull()) {
         priceChangeVisible = doc["priceChange"].as<bool>();
-    if (!doc["marketCap"].isNull())
+    }
+    if (!doc["marketCap"].isNull()) {
         marketCapVisible = doc["marketCap"].as<bool>();
-    if (!doc["dailyHighLow"].isNull())
+    }
+    if (!doc["dailyHighLow"].isNull()) {
         dailyHighLowVisible = doc["dailyHighLow"].as<bool>();
-    if (!doc["yearHighLow"].isNull())
+    }
+    if (!doc["yearHighLow"].isNull()) {
         yearHighLowVisible = doc["yearHighLow"].as<bool>();
-    if (!doc["openPrice"].isNull())
+    }
+    if (!doc["openPrice"].isNull()) {
         openPriceVisible = doc["openPrice"].as<bool>();
-    if (!doc["volume"].isNull())
+    }
+    if (!doc["volume"].isNull()) {
         volumeVisible = doc["volume"].as<bool>();
+    }
 
     // Load the various settings
-    if (!doc["formatType"].isNull())
+    if (!doc["formatType"].isNull()) {
         formatType = doc["formatType"].as<const char*>() == "US" ? FORMAT_US : FORMAT_EU;
-    if (!doc["matrixIntensity"].isNull())
+    }
+    if (!doc["matrixIntensity"].isNull()) {
         matrixIntensity = doc["matrixIntensity"].as<uint8_t>();
-    if (!doc["scrollSpeed"].isNull())
+    }
+    if (!doc["scrollSpeed"].isNull()) {
         scrollSpeed = doc["scrollSpeed"].as<uint8_t>();
+    }
     
 	printLogfln("EEPROM data loaded successfully");
 }
 
+// Test read EEPROM
+void testReadEEPROM() {
+    printLogfln("EEPROM size: %d", EEPROM.length()); // Print the size of the EEPROM
+    
+    // Print the content of the EEPROM
+    printLog("EEPROM data: ");
+    for (int i = 0; i < EEPROM_SIZE; i++) {
+        printLog(char(EEPROM.read(i)));
+    }
+    printLogln("");
+}
+
 // Setup EEPROM
 void setupEEPROM() {
-	EEPROM.begin(256); // Start the EEPROM
+	EEPROM.begin(EEPROM_SIZE); // Start the EEPROM
     loadSettingFromEEPROM(); // Load the settings from the EEPROM
 }

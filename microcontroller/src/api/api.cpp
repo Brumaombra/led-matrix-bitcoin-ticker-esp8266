@@ -34,7 +34,7 @@ void createStockDataMessage(JsonDocument doc) {
 	tempVal2 = doc[0]["changePercentage"].as<double>();
 	formatCurrency(tempVal, tempString, MAX_NUMBER_SIZE); // Format number
 	formatCurrency(tempVal2, tempString2, MAX_NUMBER_SIZE); // Format number
-	snprintf(stripMessagePrice, BUF_SIZE, " BTC: $ %s (%s%%)", tempString, tempString2);
+	snprintf(stripMessagePrice, BUF_SIZE, " btc $ %s  (%s%%)", tempString, tempString2);
 
 	// Daily Change
 	tempVal = doc[0]["change"].as<double>();
