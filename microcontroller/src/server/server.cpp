@@ -5,6 +5,7 @@
 #include "../config/config.h"
 #include "../utils/utils.h"
 #include "../storage/storage.h"
+#include "../matrix/matrix.h"
 
 // Global buffer for POST data
 String postData = "";
@@ -111,6 +112,8 @@ void setupRoutes() {
 		doc["openPrice"] = openPriceVisible;
 		doc["volume"] = volumeVisible;
 		doc["formatType"] = formatType == FORMAT_US ? "US" : "EU";
+		doc["matrixIntensity"] = matrixIntensity;
+		doc["scrollSpeed"] = scrollSpeed;
 
 		// Send the JSON object
 		size_t jsonLength = measureJson(doc) + 1; // Get the size of the JSON object
@@ -161,9 +164,15 @@ void setupRoutes() {
 				volumeVisible = doc["volume"].as<bool>();
 			if (!doc["formatType"].isNull())
 				formatType = doc["formatType"].as<String>() == "US" ? FORMAT_US : FORMAT_EU;
+			if (!doc["matrixIntensity"].isNull())
+				matrixIntensity = doc["matrixIntensity"].as<uint8_t>();
+			if (!doc["scrollSpeed"].isNull())
+				scrollSpeed = doc["scrollSpeed"].as<uint8_t>();
 			
-			// Save the new settings
-			writeEEPROM();
+			// Apply changes
+			writeEEPROM(); // Save the settings
+			setMatrixIntensity(matrixIntensity); // Set the intensity of the matrix
+			setMatrixSpeed(scrollSpeed); // Set the speed of the matrix
 
 			// Send the JSON object
 			request->send(200, "application/json", "{\"status\":\"OK\"}");

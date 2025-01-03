@@ -59,5 +59,7 @@ extern bool dailyHighLowVisible;
 extern bool yearHighLowVisible;
 extern bool openPriceVisible;
 extern bool volumeVisible;
+extern uint8_t matrixIntensity;
+extern uint8_t scrollSpeed;
 
 #endif

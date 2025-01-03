@@ -48,8 +48,10 @@ bool writeEEPROM() {
     doc["openPrice"] = openPriceVisible;
     doc["volume"] = volumeVisible;
 
-    // Add the format type to the JSON object
+    // Add the various settings to the JSON object
     doc["formatType"] = formatType == FORMAT_US ? "US" : "EU";
+    doc["matrixIntensity"] = matrixIntensity;
+    doc["scrollSpeed"] = scrollSpeed;
 
     // Write data to EEPROM
     EepromStream eepromStream(0, 256);
@@ -76,17 +78,17 @@ void loadSettingFromEEPROM() {
         return; // If error, exit the function
     }
 
-    // Check if the API key is present
+    // Load the API key
 	if (!doc["apiKey"].isNull())
         stringCopy(apiKey, doc["apiKey"], sizeof(apiKey));
     
-    // Check if the WiFi credentials are present
+    // Load the WiFi credentials
     if (!doc["ssid"].isNull())
         stringCopy(wiFiSSID, doc["ssid"], sizeof(wiFiSSID));
     if (!doc["password"].isNull())
         stringCopy(wiFiPassword, doc["password"], sizeof(wiFiPassword));
     
-    // Check if the visibility settings are present
+    // Load the visibility settings
     if (!doc["currentPrice"].isNull())
         currentPriceVisible = doc["currentPrice"].as<bool>();
     if (!doc["priceChange"].isNull())
@@ -102,9 +104,13 @@ void loadSettingFromEEPROM() {
     if (!doc["volume"].isNull())
         volumeVisible = doc["volume"].as<bool>();
 
-    // Display settings
+    // Load the various settings
     if (!doc["formatType"].isNull())
         formatType = doc["formatType"].as<const char*>() == "US" ? FORMAT_US : FORMAT_EU;
+    if (!doc["matrixIntensity"].isNull())
+        matrixIntensity = doc["matrixIntensity"].as<uint8_t>();
+    if (!doc["scrollSpeed"].isNull())
+        scrollSpeed = doc["scrollSpeed"].as<uint8_t>();
     
 	Serial.println("EEPROM data loaded successfully");
 }
