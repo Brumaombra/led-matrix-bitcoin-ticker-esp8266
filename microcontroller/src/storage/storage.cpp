@@ -5,11 +5,14 @@
 #include <LittleFS.h>
 #include "../config/config.h"
 #include "../utils/utils.h"
+#include "../serial/serial.h"
+
+const int EEPROM_SIZE = 512; // EEPROM size
 
 // Setup LittleFS
 bool setupLittleFS() {
 	if (!LittleFS.begin()) { // Check if LittleFS is mounted
-		Serial.println("An Error has occurred while mounting LittleFS");
+		printLogfln("An Error has occurred while mounting LittleFS");
 		return false;
 	} else {
 		return true;
@@ -18,11 +21,10 @@ bool setupLittleFS() {
 
 // Read data from the EEPROM
 bool readEEPROM(JsonDocument& doc) {
-    EepromStream eepromStream(0, 256);
+    EepromStream eepromStream(0, EEPROM_SIZE);
 	DeserializationError error = deserializeJson(doc, eepromStream);
     if (error) {
-        Serial.print("Error while reading the EEPROM: ");
-        Serial.println(error.c_str()); // Print the error message
+        printLogf("Error while reading the EEPROM: %s\n", error.c_str()); // Print the error message
         return false;
     }
     return true; // Read success
@@ -32,12 +34,16 @@ bool readEEPROM(JsonDocument& doc) {
 bool writeEEPROM() {
 	JsonDocument doc; // JSON object
 
-    // Check if the WiFi credentials need to be updated
-    doc["ssid"] = wiFiSSID;
-    doc["password"] = wiFiPassword;
+    // Add the WiFi credentials to the JSON object
+    if (strlen(wiFiSSID) != 0 && strlen(wiFiPassword) != 0) {
+        doc["ssid"] = wiFiSSID;
+        doc["password"] = wiFiPassword;
+    }
 
     // Add the API key to the JSON object
-    doc["apiKey"] = apiKey;
+    if (strlen(apiKey) != 0) {
+        doc["apiKey"] = apiKey;
+    }
 
     // Add the visibility settings to the JSON object
     doc["currentPrice"] = currentPriceVisible;
@@ -54,7 +60,7 @@ bool writeEEPROM() {
     doc["scrollSpeed"] = scrollSpeed;
 
     // Write data to EEPROM
-    EepromStream eepromStream(0, 256);
+    EepromStream eepromStream(0, EEPROM_SIZE);
 	if (!serializeJson(doc, eepromStream)) {
         return false; // Error while writing on EEPROM
     }
@@ -65,7 +71,7 @@ bool writeEEPROM() {
     }
 
     // Mark as saved
-	Serial.println("Data saved on EEPROM");
+	printLogfln("Data saved on EEPROM");
 	return true; // Write success
 }
 
@@ -112,7 +118,7 @@ void loadSettingFromEEPROM() {
     if (!doc["scrollSpeed"].isNull())
         scrollSpeed = doc["scrollSpeed"].as<uint8_t>();
     
-	Serial.println("EEPROM data loaded successfully");
+	printLogfln("EEPROM data loaded successfully");
 }
 
 // Setup EEPROM

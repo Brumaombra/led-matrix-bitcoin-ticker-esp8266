@@ -7,6 +7,7 @@
 #include "../utils/utils.h"
 #include "../storage/storage.h"
 #include "../matrix/matrix.h"
+#include "../serial/serial.h"
 
 // HTTPS client
 WiFiClientSecure clientSecure;
@@ -21,7 +22,7 @@ void setupWebClient() {
 
 // Create the scrolling message
 void createStockDataMessage(JsonDocument doc) {
-	Serial.println("Creating message...");
+	printLogfln("Creating message...");
 	const byte MAX_NUMBER_SIZE = 30; // Max length for the numbers
 	char tempString[MAX_NUMBER_SIZE]; // Temporary string 1
 	char tempString2[MAX_NUMBER_SIZE]; // Temporary string 2
@@ -74,14 +75,14 @@ void createStockDataMessage(JsonDocument doc) {
 bool getStockDataAPI() {
 	char url[150]; // Full URL
 	sprintf(url, "%s%s", apiUrl, apiKey); // Add the API key to the URL
-	Serial.println(url); // Print the URL
+	printLogfln(url); // Print the URL
 	http.begin(clientSecure, url); // Start the connection with HTTPS client
 	if (http.GET() == HTTP_CODE_OK) {
-		Serial.println("Response body: " + http.getString());
+		printLogfln("Response body: %s", http.getString().c_str());
 		JsonDocument doc; // Create the JSON object
 		DeserializationError error = deserializeJson(doc, http.getString()); // Deserialize the JSON object
 		if (error) { // Error while parsing the JSON
-			Serial.printf("Error while parsing the JSON: %s\n", error.c_str());
+			printLogfln("Error while parsing the JSON: %s\n", error.c_str());
 			http.end();
 			return false;
 		}
@@ -89,7 +90,7 @@ bool getStockDataAPI() {
 		http.end(); // Close connection
 		return true;
 	} else {
-		Serial.printf("HTTP call error: %d\n", http.GET());
+		printLogfln("HTTP call error: %d\n", http.GET());
 		http.end();
 		return false;
 	}
@@ -102,17 +103,17 @@ bool callAPI() {
 		// Check if the API key is present
 		if (apiKey[0] == '\0') {
 			const char errorMessageApi[] = "API key is not present. Use the web page to insert the key and try again.";
-			Serial.println(errorMessageApi);
+			printLogfln(errorMessageApi);
 			printOnLedMatrix(errorMessageApi, sizeof(errorMessageApi)); // Print the message on the matrix
 			return false; // If error, return false
 		}
 
-		Serial.println("Calling the API");
+		printLogfln("Calling the API");
 
 		// Get the data
 		if (!getStockDataAPI()) {
 			const char errorMessageServer[] = "Error while calling the API. Retrying...";
-			Serial.println(errorMessageServer);
+			printLogfln(errorMessageServer);
 			printOnLedMatrix(errorMessageServer, sizeof(errorMessageServer)); // Print the message on the matrix
 			return false; // If error, return false
 		}

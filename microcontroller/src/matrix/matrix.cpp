@@ -3,6 +3,7 @@
 #include "../utils/utils.h"
 #include "../api/api.h"
 #include "../wifi/wifi.h"
+#include "../serial/serial.h"
 
 // Print the message on the matrix
 void printOnLedMatrix(const char* message, const byte stringLength, uint16_t messageStill) {
@@ -39,49 +40,49 @@ void manageLedMatrix() {
 	// Print messagges
 	switch (switchText) {
 		case PRINT_PRICE:
-			Serial.println("Section: PRICE");
+			printLogfln("Section: PRICE");
 			if (currentPriceVisible) // Check if current price is visible
 				printOnLedMatrix(stripMessagePrice, BUF_SIZE, 30000); // Print the message on the matrix
 			switchText = PRINT_CHANGE;
 			break;
 
 		case PRINT_CHANGE:
-			Serial.println("Section: CHANGE");
+			printLogfln("Section: CHANGE");
 			if (priceChangeVisible) // Check if price change is visible
 				printOnLedMatrix(stripMessageDailyChange, BUF_SIZE); // Print the message on the matrix
 			switchText = PRINT_MARKET_CAP;
 			break;
 		
 		case PRINT_MARKET_CAP:
-			Serial.println("Section: MARKET CAP");
+			printLogfln("Section: MARKET CAP");
 			if (marketCapVisible) // Check if market cap is visible
 				printOnLedMatrix(stripMessageMarketCap, BUF_SIZE); // Print the message on the matrix
 			switchText = PRINT_DAILY_HIGH_LOW;
 			break;
 
 		case PRINT_DAILY_HIGH_LOW:
-			Serial.println("Section: DAILY HIGHLOW");
+			printLogfln("Section: DAILY HIGHLOW");
 			if (dailyHighLowVisible) // Check if daily high/low is visible
 				printOnLedMatrix(stripMessageDailyHighLow, BUF_SIZE); // Print the message on the matrix
 			switchText = PRINT_YEAR_HIGH_LOW;
 			break;
 
 		case PRINT_YEAR_HIGH_LOW:
-			Serial.println("Section: YEAR HIGHLOW");
+			printLogfln("Section: YEAR HIGHLOW");
 			if (yearHighLowVisible) // Check if year high/low is visible
 				printOnLedMatrix(stripMessageYearHighLow, BUF_SIZE); // Print the message on the matrix
 			switchText = PRINT_OPEN;
 			break;
 
 		case PRINT_OPEN:
-			Serial.println("Section: OPEN");
+			printLogfln("Section: OPEN");
 			if (openPriceVisible) // Check if open price is visible
 				printOnLedMatrix(stripMessageOpen, BUF_SIZE); // Print the message on the matrix
 			switchText = PRINT_VOLUME;
 			break;
 			
 		case PRINT_VOLUME:
-			Serial.println("Section: VOLUME");
+			printLogfln("Section: VOLUME");
 			if (volumeVisible) // Check if volume is visible
 				printOnLedMatrix(stripMessageVolume, BUF_SIZE); // Print the message on the matrix
 			switchText = PRINT_PRICE;
