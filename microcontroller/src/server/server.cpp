@@ -6,6 +6,7 @@
 #include "../utils/utils.h"
 #include "../storage/storage.h"
 #include "../matrix/matrix.h"
+#include "../serial/serial.h"
 
 // Global buffer for POST data
 String postData = "";
@@ -36,7 +37,7 @@ void setupRoutes() {
 		wiFiConnectionStatus = WIFI_TRY; // Trying to connect
 
 		// Print the new credentials
-		Serial.printf("SSID: %s, Password: %s\n", wiFiSSID, wiFiPassword);
+		printLogfln("SSID: %s, Password: %s\n", wiFiSSID, wiFiPassword);
 
 		// Response
 		char jsonResponse[20]; // JSON response
@@ -96,7 +97,7 @@ void setupRoutes() {
 
 		// Send the JSON object
 		request->send(200, "application/json", "{\"status\":\"OK\"}"); // Send the JSON object
-		Serial.println("API key changed");
+		printLogfln("API key changed");
 	});
 
 	// Get the values visibility settings
@@ -137,7 +138,7 @@ void setupRoutes() {
 		
 		// Process only when all chunks received
 		if (index + len == total) {
-			Serial.println("Complete data: " + postData);
+			printLogfln("Complete data: %s", postData.c_str());
 
 			// Parse the JSON object
 			JsonDocument doc;
@@ -176,7 +177,7 @@ void setupRoutes() {
 
 			// Send the JSON object
 			request->send(200, "application/json", "{\"status\":\"OK\"}");
-			Serial.println("Values settings changed");
+			printLogfln("Values settings changed");
 		}
 	});
 }

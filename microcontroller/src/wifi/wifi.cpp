@@ -3,13 +3,14 @@
 #include "../config/config.h"
 #include "../storage/storage.h"
 #include "../matrix/matrix.h"
+#include "../serial/serial.h"
 
 // Connecting to WiFi
 bool connectToWiFi() {
     WiFi.begin(wiFiSSID, wiFiPassword);
     byte maxTry = 50;
     byte count = 0;
-    Serial.print("Connecting to WiFi");
+    printLog("Connecting to WiFi");
     
 	// Wait for connection
     while (WiFi.status() != WL_CONNECTED) {
@@ -19,13 +20,13 @@ bool connectToWiFi() {
             return false;
         }
         count++;
-        Serial.print(".");
+        printLog(".");
         delay(250);
     }
 
 	// Check if connected
     if (WiFi.status() == WL_CONNECTED) {
-        Serial.println(" connected!");
+        printLogln(" connected!");
         return true;
     }
     
@@ -92,7 +93,7 @@ bool manageWiFiConnection() {
 bool checkWifiConnection() {
 	if (WiFi.status() != WL_CONNECTED) {
 		const char errorMessage[] = "Not connected to Wi-Fi. Use the 'Bitcoin-Ticker' access point to enter the Wi-Fi credentials.";
-		Serial.println(errorMessage);
+		printLogfln(errorMessage);
 		printOnLedMatrix(errorMessage, sizeof(errorMessage)); // Print the message on the matrix
 		return false; // Not connected
 	}

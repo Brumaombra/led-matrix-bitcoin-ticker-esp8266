@@ -1,3 +1,4 @@
+#include "serial/serial.h"
 #include "storage/storage.h"
 #include "api/api.h"
 #include "wifi/wifi.h"
@@ -6,7 +7,7 @@
 
 // Setup
 void setup() {
-	Serial.begin(9600); // Start serial
+	initSerial(); // Init serial
 	setupLittleFS(); // Setup LittleFS
 	setupEEPROM(); // Setup EEPROM
 	setupServer(); // Setup server
