@@ -7,7 +7,7 @@ This project transforms an ESP8266 microcontroller and a MAX7219 LED matrix into
 ## The Web Page
 Control the settings using the extremely user-friendly webpage!
 
-![Web page screenshot](docs/web_page_screenshots.jpg)
+![Web page screenshot](docs/screen_full.png)
 
 ## Features
 - **Real-Time Bitcoin Information:** Displays a variety of helpful, up-to-date Bitcoin data, including the current price, daily change, yearly high, yearly low, opening price, and much more!
